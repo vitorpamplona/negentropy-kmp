@@ -33,7 +33,7 @@ import platform.posix.fread
 @OptIn(ExperimentalForeignApi::class)
 actual fun readTestResource(resourceName: String): ByteArray {
     println("Reading Test Resource $resourceName")
-    val file = fopen(resourceName, "rb")
+    val file = fopen("src/commonTest/resources$resourceName", "rb")
     val bufferSize = 8 * 1024
     val byteArray = mutableListOf<Byte>()
 
