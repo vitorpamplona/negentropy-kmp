@@ -91,12 +91,6 @@ Issues can be logged on: [https://gitworkshop.dev/repo/negentropy-kmp](https://g
 
 By contributing to this repository, you agree to license your work under the MIT license. Any work contributed where you are not the original author must contain its license header with the original author(s) and source.
 
-# Screenshots
-
-| FollowFeeds                              | ChatsGroup                              | LiveStreams                                    | Notifications                                          |
-|-------------------------------------------|----------------------------------------------|-------------------------------------------------|--------------------------------------------------------|
-| ![Home Feed](./docs/screenshots/home.png) | ![Messages](./docs/screenshots/messages.png) | ![Live Streams](./docs/screenshots/replies.png) | ![Notifications](./docs/screenshots/notifications.png) |
-
 # Contributors
 
 <a align="center" href="https://github.com/vitorpamplona/negentropy-kmp/graphs/contributors">
