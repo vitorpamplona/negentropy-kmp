@@ -52,11 +52,11 @@ android {
 }
 
 mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-
-    signAllPublications()
+    //publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
 
     coordinates(group.toString(), "kmp-negentropy", version.toString())
+
+    signAllPublications()
 
     pom {
         name = "Negentropy Library for Kotlin Multiplatform"
