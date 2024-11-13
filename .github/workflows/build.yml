@@ -49,6 +49,7 @@ jobs:
         run: ./gradlew spotlessCheck
 
       - name: Set version
+        if: matrix.os == 'macOS-latest'
         run: |
           echo "ORG_GRADLE_PROJECT_VERSION_NAME=$(git describe --tags --abbrev=0 | awk -F. '/[0-9]+\./{$NF++;print}' OFS=.)-SNAPSHOT" >> $GITHUB_ENV
 
@@ -85,6 +86,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Publish
+        if: matrix.os == 'macOS-latest'
         run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.SONATYPE_USERNAME }}
