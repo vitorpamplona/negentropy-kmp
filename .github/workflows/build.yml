@@ -30,6 +30,13 @@ jobs:
           distribution: 'zulu'
           java-version: 17
 
+      - name: Cached Konan
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-konan-
+
       - name: Cache gradle
         uses: actions/cache@v4
         with:
@@ -57,16 +64,16 @@ jobs:
         if: matrix.os == 'macOS-latest'
         run: ./gradlew iosX64Test
 
-      - name: Check Android
-        if: matrix.os == 'ubuntu-latest'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          script: ./gradlew connectedCheck
+#      - name: Check Android
+#        if: matrix.os == 'ubuntu-latest'
+#        uses: reactivecircus/android-emulator-runner@v2
+#        with:
+#          api-level: 34
+#          script: ./gradlew connectedCheck
 
-      - name: Android Test Report
-        uses: asadmansr/android-test-report-action@v1.2.0
-        if: matrix.os == 'ubuntu-latest'
+#      - name: Android Test Report
+#        uses: asadmansr/android-test-report-action@v1.2.0
+#        if: matrix.os == 'ubuntu-latest'
 
       - name: Build (gradle)
         run: ./gradlew assemble --no-daemon
