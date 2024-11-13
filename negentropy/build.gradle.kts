@@ -52,7 +52,7 @@ android {
 }
 
 mavenPublishing {
-    coordinates(group.toString(), "kmp-negentropy", version.toString())
+    coordinates(artifactId =  "kmp-negentropy")
 
     pom {
         name = "Negentropy Library for Kotlin Multiplatform"
