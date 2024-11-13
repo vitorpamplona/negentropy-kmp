@@ -20,7 +20,33 @@
  */
 package com.vitorpamplona.negentropy.platform
 
+import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.allocArray
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.readBytes
+import platform.posix.fclose
+import platform.posix.fopen
+import platform.posix.fread
+
 /** Read the given resource as binary data. */
+@OptIn(ExperimentalForeignApi::class)
 actual fun readTestResource(resourceName: String): ByteArray {
-    TODO("Not yet implemented")
+    println("Reading Test Resource $resourceName")
+    val file = fopen(resourceName, "rb")
+    val bufferSize = 8 * 1024
+    val byteArray = mutableListOf<Byte>()
+
+    try {
+        memScoped {
+            val buffer = allocArray<ByteVar>(bufferSize)
+            do {
+                val size = fread(buffer, 1u, bufferSize.toULong(), file)
+                byteArray.addAll(buffer.readBytes(size.toInt()).asIterable())
+            } while (size > 0u)
+        }
+    } finally {
+        fclose(file)
+    }
+    return byteArray.toByteArray()
 }
