@@ -75,6 +75,22 @@ Build the app:
 
 Clone [Doug Hoyte's repository here](https://github.com/hoytech/negentropy) and clone this repository inside of it. 
 
+```bash
+git clone https://github.com/hoytech/negentropy
+cd negentropy
+git clone https://github.com/vitorpamplona/negentropy-kmp
+cd negentropy-kmp
+```
+
+Create a `local.properties` file that points to your Android SDK. If you are using Android Studio,
+the IDE performs this step for you.
+
+For example:
+
+```bash
+echo "sdk.dir=/Users/<your user>/Library/Android/sdk" > local.properties
+```
+
 Run `./gradlew assemble` to generate the `.jar` for the library and
 
 ```bash
