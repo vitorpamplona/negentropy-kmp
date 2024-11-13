@@ -52,11 +52,7 @@ android {
 }
 
 mavenPublishing {
-    //publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-
     coordinates(group.toString(), "kmp-negentropy", version.toString())
-
-    signAllPublications()
 
     pom {
         name = "Negentropy Library for Kotlin Multiplatform"
@@ -82,6 +78,12 @@ mavenPublishing {
             connection = "https://github.com/vitorpamplona/kmp-negentropy.git"
         }
     }
+
+    // Configure publishing to Maven Central
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+
+    // Enable GPG signing for all publications
+    signAllPublications()
 }
 
 afterEvaluate {
