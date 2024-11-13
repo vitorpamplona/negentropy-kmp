@@ -1,6 +1,10 @@
-# Negentropy Kotlin Multiplatform Implementation
+# Negentropy Kotlin Multiplatform
 
-The library shouldn't need any dependencies and can run as Java or Native.
+Kotlin multiplatform implementation of Negentropy Range-Based-Set-Reconciliation protocol.
+
+It's basically a binary search set-reconciliation algorithm.
+You can read about the details [here](https://logperiodic.com/rbsr.html).
+This code is basically a re-implementation of [Doug Hoyte's repository here](https://github.com/hoytech/negentropy)
 
 ## Storage
 
@@ -67,14 +71,58 @@ Build the app:
 ./gradlew test
 ```
 
-## Running Test suite
+## Running Conformance Tests with other implementations
 
-Run assemble to generate the `.jar` for the library 
+Clone [Doug Hoyte's repository here](https://github.com/hoytech/negentropy) and clone this repository inside of it. 
+
+Run `./gradlew assemble` to generate the `.jar` for the library and
 
 ```bash
 perl test.pl kotlin,js
 ```
 
+to run the test with a kotlin node and a javascript node
+
+## Contributing
+
+Issues can be logged on: [https://gitworkshop.dev/repo/negentropy-kmp](https://gitworkshop.dev/repo/negentropy-kmp)
+
+[GitHub issues](https://github.com/vitorpamplona/negentropy-kmp/issues) and [pull requests](https://github.com/vitorpamplona/negentropy-kmp/pulls) here are also welcome. Translations can be provided via [Crowdin](https://crowdin.com/project/amethyst-social)
+
+By contributing to this repository, you agree to license your work under the MIT license. Any work contributed where you are not the original author must contain its license header with the original author(s) and source.
+
+# Screenshots
+
+| FollowFeeds                              | ChatsGroup                              | LiveStreams                                    | Notifications                                          |
+|-------------------------------------------|----------------------------------------------|-------------------------------------------------|--------------------------------------------------------|
+| ![Home Feed](./docs/screenshots/home.png) | ![Messages](./docs/screenshots/messages.png) | ![Live Streams](./docs/screenshots/replies.png) | ![Notifications](./docs/screenshots/notifications.png) |
+
 # Contributors
 
-Vitor Pamplona
+<a align="center" href="https://github.com/vitorpamplona/negentropy-kmp/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=vitorpamplona/negentropy-kmp" />
+</a>
+
+# MIT License
+
+<pre>
+Copyright (c) 2024 Vitor Pamplona
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</pre>
