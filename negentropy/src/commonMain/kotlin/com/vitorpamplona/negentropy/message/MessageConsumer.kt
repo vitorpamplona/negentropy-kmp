@@ -1,3 +1,23 @@
+/**
+ * Copyright (c) 2024 Vitor Pamplona
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+ * Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 package com.vitorpamplona.negentropy.message
 
 import com.vitorpamplona.negentropy.fingerprint.Fingerprint
@@ -5,7 +25,10 @@ import com.vitorpamplona.negentropy.storage.Bound
 import com.vitorpamplona.negentropy.storage.HashedByteArray
 import com.vitorpamplona.negentropy.storage.Id
 
-class MessageConsumer(buffer: ByteArray, lastTimestamp: Long = 0) {
+class MessageConsumer(
+    buffer: ByteArray,
+    lastTimestamp: Long = 0,
+) {
     private val consumer = ByteArrayReader(buffer)
 
     // all timestamps in a Negentropy messages are deltas from the previous one
@@ -61,15 +84,15 @@ class MessageConsumer(buffer: ByteArray, lastTimestamp: Long = 0) {
         return when (mode.toInt()) {
             Mode.Skip.CODE -> Mode.Skip(currBound)
             Mode.Fingerprint.CODE -> Mode.Fingerprint(currBound, Fingerprint(consumer.readNBytes(Fingerprint.SIZE)))
-            Mode.IdList.CODE -> Mode.IdList(
-                currBound,
-                List(decodeVarInt().toInt()) { Id(consumer.readNBytes(Id.SIZE)) })
+            Mode.IdList.CODE ->
+                Mode.IdList(
+                    currBound,
+                    List(decodeVarInt().toInt()) { Id(consumer.readNBytes(Id.SIZE)) },
+                )
 
             else -> {
                 throw Error("message.Mode not found")
             }
         }
     }
-
 }
-

@@ -1,3 +1,23 @@
+/**
+ * Copyright (c) 2024 Vitor Pamplona
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+ * Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 package com.vitorpamplona.negentropy.testutils
 
 import com.vitorpamplona.negentropy.Negentropy
@@ -18,12 +38,32 @@ class InstructionParser {
         val command: Command,
     )
 
-    sealed class Command(val source: String) {
-        class Create(source: String, val frameSizeLimit: Long) : Command(source)
-        class Item(source: String, val created: Long, val id: Id) :Command(source)
-        class Seal(source: String) : Command(source)
-        class Initiate(source: String) : Command(source)
-        class Message(source: String, val msg: ByteArray) : Command(source)
+    sealed class Command(
+        val source: String,
+    ) {
+        class Create(
+            source: String,
+            val frameSizeLimit: Long,
+        ) : Command(source)
+
+        class Item(
+            source: String,
+            val created: Long,
+            val id: Id,
+        ) : Command(source)
+
+        class Seal(
+            source: String,
+        ) : Command(source)
+
+        class Initiate(
+            source: String,
+        ) : Command(source)
+
+        class Message(
+            source: String,
+            val msg: ByteArray,
+        ) : Command(source)
     }
 
     @OptIn(ExperimentalStdlibApi::class)
@@ -67,12 +107,16 @@ class InstructionParser {
         return list
     }
 
-    fun loadFiles(file1: String, file2: String): List<Instruction> {
-        return (loadFile(file1) + loadFile(file2)).sortedBy { it.time }
-    }
+    fun loadFiles(
+        file1: String,
+        file2: String,
+    ): List<Instruction> = (loadFile(file1) + loadFile(file2)).sortedBy { it.time }
 
     @OptIn(ExperimentalStdlibApi::class)
-    fun runLine(line: Instruction, nodes: MutableMap<String, Node>): String? {
+    fun runLine(
+        line: Instruction,
+        nodes: MutableMap<String, Node>,
+    ): String? {
         val node = nodes[line.toNode]
         val ne = node?.negentropy
         when (val command = line.command) {
@@ -102,8 +146,9 @@ class InstructionParser {
                 check(ne != null) { "Negentropy not created for this Node ${line.toNode}" }
                 val result = ne.reconcile(command.msg)
 
-                if (ne.frameSizeLimit > 0 && result.msg != null && result.msg!!.size > ne.frameSizeLimit * 2)
+                if (ne.frameSizeLimit > 0 && result.msg != null && result.msg!!.size > ne.frameSizeLimit * 2) {
                     throw Error("frameSizeLimit exceeded")
+                }
 
                 node.haves.addAll(result.sendIds)
                 node.needs.addAll(result.needIds)

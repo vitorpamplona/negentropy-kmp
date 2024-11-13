@@ -1,3 +1,23 @@
+/**
+ * Copyright (c) 2024 Vitor Pamplona
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+ * Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 package com.vitorpamplona.negentropy
 
 import com.vitorpamplona.negentropy.fingerprint.FingerprintCalculator
@@ -11,7 +31,7 @@ import com.vitorpamplona.negentropy.storage.StorageUnit
 
 class Negentropy(
     internal val storage: IStorage,
-    internal val frameSizeLimit: Long = 0
+    internal val frameSizeLimit: Long = 0,
 ) {
     companion object {
         const val PROTOCOL_VERSION = 0x61.toByte() // Version 1
@@ -25,7 +45,11 @@ class Negentropy(
 
     private val fingerprint = FingerprintCalculator()
 
-    internal fun insert(timestamp: Long, id: Id) = storage.insert(timestamp, id)
+    internal fun insert(
+        timestamp: Long,
+        id: Id,
+    ) = storage.insert(timestamp, id)
+
     internal fun seal() = storage.seal()
 
     private var isInitiator: Boolean = false
@@ -80,8 +104,8 @@ class Negentropy(
                             builder.addFingerprint(
                                 Mode.Fingerprint(
                                     Bound(Long.MAX_VALUE),
-                                    fingerprint.run(storage, upperIndex, storage.size())
-                                )
+                                    fingerprint.run(storage, upperIndex, storage.size()),
+                                ),
                             )
                             break
                         }
@@ -106,8 +130,8 @@ class Negentropy(
                             builder.addFingerprint(
                                 Mode.Fingerprint(
                                     Bound(Long.MAX_VALUE),
-                                    fingerprint.run(storage, upperIndex, storage.size())
-                                )
+                                    fingerprint.run(storage, upperIndex, storage.size()),
+                                ),
                             )
                             break
                         }
@@ -121,11 +145,16 @@ class Negentropy(
         return ReconciliationResult(
             if (builder.length() == 1 && isInitiator) null else builder.toByteArray(),
             haveIds.toList(),
-            needIds.toList()
+            needIds.toList(),
         )
     }
 
-    private fun listIdsInRange(lowerIndex: Int, upperIndex: Int, startingNextBound: Bound, limit: Long): Mode.IdList {
+    private fun listIdsInRange(
+        lowerIndex: Int,
+        upperIndex: Int,
+        startingNextBound: Bound,
+        limit: Long,
+    ): Mode.IdList {
         val responseIds = mutableListOf<Id>()
         var resultingNextBound = startingNextBound
 
@@ -144,8 +173,10 @@ class Negentropy(
 
     private fun reconcileRangeIntoHavesAndNeeds(
         ids: List<Id>,
-        lowerIndex: Int, upperIndex: Int,
-        haves: MutableSet<Id>, needs: MutableSet<Id>
+        lowerIndex: Int,
+        upperIndex: Int,
+        haves: MutableSet<Id>,
+        needs: MutableSet<Id>,
     ) {
         if (lowerIndex == upperIndex) {
             // nothing to filter in the local db
@@ -166,7 +197,7 @@ class Negentropy(
     private fun prepareBounds(
         lowerIndex: Int = 0,
         upperIndex: Int = storage.size(),
-        finalUpperBound: Bound = Bound(Long.MAX_VALUE)
+        finalUpperBound: Bound = Bound(Long.MAX_VALUE),
     ): List<Mode> {
         val numElems = upperIndex - lowerIndex
 
@@ -182,13 +213,14 @@ class Negentropy(
                 val ourFingerprint = fingerprint.run(storage, currIndex, currIndex + bucketSize)
                 currIndex += bucketSize
 
-                val nextBound = if (currIndex == upperIndex) {
-                    // this is the final bucket
-                    finalUpperBound
-                } else {
-                    // figure out where to break
-                    smallestBoundPrefix(storage.getItem(currIndex - 1), storage.getItem(currIndex))
-                }
+                val nextBound =
+                    if (currIndex == upperIndex) {
+                        // this is the final bucket
+                        finalUpperBound
+                    } else {
+                        // figure out where to break
+                        smallestBoundPrefix(storage.getItem(currIndex - 1), storage.getItem(currIndex))
+                    }
 
                 Mode.Fingerprint(nextBound, ourFingerprint)
             }
@@ -204,11 +236,13 @@ class Negentropy(
 
     private fun exceededFrameSizeLimit(n: Int) = frameSizeLimit != 0L && n > frameSizeLimit - 200L
 
-    private fun smallestBoundPrefix(prev: StorageUnit, curr: StorageUnit): Bound {
-        return if (curr.timestamp != prev.timestamp) {
+    private fun smallestBoundPrefix(
+        prev: StorageUnit,
+        curr: StorageUnit,
+    ): Bound =
+        if (curr.timestamp != prev.timestamp) {
             Bound(curr.timestamp)
         } else {
             Bound(curr.timestamp, curr.id.sharedPrefixPlusMyNextChar(prev.id))
         }
-    }
 }

@@ -1,12 +1,38 @@
+/**
+ * Copyright (c) 2024 Vitor Pamplona
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+ * Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 package com.vitorpamplona.negentropy.storage
 
 class StorageVector : IStorage {
     private val items = mutableListOf<StorageUnit>()
     private var sealed = false
 
-    override fun insert(timestamp: Long, idHex: String) = insert(timestamp, Id(idHex))
+    override fun insert(
+        timestamp: Long,
+        idHex: String,
+    ) = insert(timestamp, Id(idHex))
 
-    override fun insert(timestamp: Long, id: Id) {
+    override fun insert(
+        timestamp: Long,
+        id: Id,
+    ) {
         check(!sealed) { "already sealed" }
 
         items.add(StorageUnit(timestamp, id))
@@ -39,7 +65,11 @@ class StorageVector : IStorage {
         return items.map(run)
     }
 
-    override fun <T> map(begin: Int, end: Int, run: (StorageUnit) -> T): List<T> {
+    override fun <T> map(
+        begin: Int,
+        end: Int,
+        run: (StorageUnit) -> T,
+    ): List<T> {
         checkSealed()
         checkBounds(begin, end)
 
@@ -54,7 +84,11 @@ class StorageVector : IStorage {
         return list
     }
 
-    override fun forEach(begin: Int, end: Int, run: (StorageUnit) -> Unit) {
+    override fun forEach(
+        begin: Int,
+        end: Int,
+        run: (StorageUnit) -> Unit,
+    ) {
         checkSealed()
         checkBounds(begin, end)
 
@@ -74,7 +108,11 @@ class StorageVector : IStorage {
         return -1
     }
 
-    override fun iterate(begin: Int, end: Int, shouldContinue: (StorageUnit, Int) -> Boolean) {
+    override fun iterate(
+        begin: Int,
+        end: Int,
+        shouldContinue: (StorageUnit, Int) -> Boolean,
+    ) {
         checkSealed()
         checkBounds(begin, end)
 
@@ -85,7 +123,11 @@ class StorageVector : IStorage {
         }
     }
 
-    override fun indexAtOrBeforeBound(bound: Bound, begin: Int, end: Int): Int {
+    override fun indexAtOrBeforeBound(
+        bound: Bound,
+        begin: Int,
+        end: Int,
+    ): Int {
         checkSealed()
         checkBounds(begin, end)
 
@@ -99,5 +141,8 @@ class StorageVector : IStorage {
 
     private fun checkSealed() = check(sealed) { "not sealed" }
 
-    private fun checkBounds(begin: Int, end: Int) = check(begin <= end && end <= items.size) { "bad range" }
+    private fun checkBounds(
+        begin: Int,
+        end: Int,
+    ) = check(begin <= end && end <= items.size) { "bad range" }
 }

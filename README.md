@@ -68,7 +68,7 @@ Build the app:
 
 ## Testing
 ```bash
-./gradlew test
+./gradlew allTests
 ```
 
 ## Running Conformance Tests with other implementations

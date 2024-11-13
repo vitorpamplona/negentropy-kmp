@@ -1,8 +1,31 @@
+/**
+ * Copyright (c) 2024 Vitor Pamplona
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+ * Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 package com.vitorpamplona.negentropy.message
 
 import com.vitorpamplona.negentropy.storage.Bound
 
-class MessageBuilder(lastTimestamp: Long = 0L, skipStarter: SkipDelayer = SkipDelayer()) {
+class MessageBuilder(
+    lastTimestamp: Long = 0L,
+    skipStarter: SkipDelayer = SkipDelayer(),
+) {
     private val builder = ByteArrayWriter(512)
 
     // all timestamps in a Negentropy messages are deltas from the previous one
@@ -31,8 +54,8 @@ class MessageBuilder(lastTimestamp: Long = 0L, skipStarter: SkipDelayer = SkipDe
     // Utility functions
     // -----------------
 
-    internal fun encodeTimestampOut(timestamp: Long): ByteArray {
-        return if (timestamp == Long.MAX_VALUE) {
+    internal fun encodeTimestampOut(timestamp: Long): ByteArray =
+        if (timestamp == Long.MAX_VALUE) {
             lastTimestampOut = Long.MAX_VALUE
             encodeVarInt(0)
         } else {
@@ -40,7 +63,6 @@ class MessageBuilder(lastTimestamp: Long = 0L, skipStarter: SkipDelayer = SkipDe
             lastTimestampOut = timestamp
             encodeVarInt(adjustedTimestamp + 1)
         }
-    }
 
     internal fun addByteArray(newBuffer: ByteArray) = builder.write(newBuffer)
 
@@ -105,7 +127,9 @@ class MessageBuilder(lastTimestamp: Long = 0L, skipStarter: SkipDelayer = SkipDe
     /**
      * Stores a skip state that can be shared between builders.
      */
-    class SkipDelayer(currentSkipState: Bound? = null) {
+    class SkipDelayer(
+        currentSkipState: Bound? = null,
+    ) {
         private var delaySkipBound = currentSkipState
 
         fun skip(nextBound: Bound) {
@@ -120,4 +144,3 @@ class MessageBuilder(lastTimestamp: Long = 0L, skipStarter: SkipDelayer = SkipDe
         }
     }
 }
-
