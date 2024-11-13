@@ -85,9 +85,7 @@ to run the test with a kotlin node and a javascript node
 
 ## Contributing
 
-Issues can be logged on: [https://gitworkshop.dev/repo/negentropy-kmp](https://gitworkshop.dev/repo/negentropy-kmp)
-
-[GitHub issues](https://github.com/vitorpamplona/negentropy-kmp/issues) and [pull requests](https://github.com/vitorpamplona/negentropy-kmp/pulls) here are also welcome. Translations can be provided via [Crowdin](https://crowdin.com/project/amethyst-social)
+Issues can be logged on [GitHub issues](https://github.com/vitorpamplona/negentropy-kmp/issues). [Pull requests](https://github.com/vitorpamplona/negentropy-kmp/pulls) are very welcome. 
 
 By contributing to this repository, you agree to license your work under the MIT license. Any work contributed where you are not the original author must contain its license header with the original author(s) and source.
 
