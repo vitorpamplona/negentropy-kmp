@@ -3,10 +3,12 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform) apply  false
     alias(libs.plugins.vanniktech.mavenPublish) apply false
     alias(libs.plugins.diffplugSpotless)
+    alias(libs.plugins.dokka)
 }
 
 allprojects {
     apply(plugin = "com.diffplug.spotless")
+    apply(plugin = "org.jetbrains.dokka")
 
     spotless {
         kotlin {
