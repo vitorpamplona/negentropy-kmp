@@ -8,7 +8,7 @@ This code is basically a re-implementation of [Doug Hoyte's repository here](htt
 
 ## Storage
 
-First, you need to create a storage instance. Currently only `Vector` is implemented. 
+First, you need to create a storage instance. Currently only `Vector` is implemented.
 Add all the items in your collection with `insert(timestamp, hash)` and call `seal()`
 
     StorageVector().apply {
@@ -73,7 +73,7 @@ Build the app:
 
 ## Running Conformance Tests with other implementations
 
-Clone [Doug Hoyte's repository here](https://github.com/hoytech/negentropy) and clone this repository inside of it. 
+Clone [Doug Hoyte's repository here](https://github.com/hoytech/negentropy) and clone this repository inside of it.
 
 ```bash
 git clone https://github.com/hoytech/negentropy
@@ -99,9 +99,66 @@ perl test.pl kotlin,js
 
 to run the test with a kotlin node and a javascript node
 
+## Publishing
+
+Install GnuPG and generate a key:
+
+```bash
+gpg --gen-key
+```
+
+Run `gpg --list-keys` to show your GPG keys.
+
+Distribute the public key:
+
+```bash
+gpg --keyserver keyserver.ubuntu.com --send-keys <pubkey>
+```
+
+Export your private key to a file
+
+```bash
+gpg --export-secret-keys > ~/.gnupg/secring.gpg
+```
+
+Generate a User Token on MavenCentral
+
+To publish from local, and add the following fields to your ~/.gradle/gradle.properties file:
+
+```properties
+mavenCentralUsername=<maven user>
+mavenCentralPassword=<maven password>
+signing.keyId=<gpg key id>
+signing.password=<gpg key passphrase>
+signing.secretKeyRingFile=<yourhome>/.gnupg/secring.gpg
+```
+
+Then run
+
+```bash
+./gradlew publishAllPublicationsToMavenCentral --no-configuration-cache
+```
+
+To publish from GitHub Actions, export your private key as a base64 string:
+
+```bash
+gpg --export-secret-keys --armor <key-id> ~/.gnupg/secring.gpg | grep -v '\-\-' | grep -v '^=.' | tr -d '\n'
+```
+
+and add the following secrets to your GitHub secrets:
+
+```properties
+SONATYPE_USERNAME=<maven user>
+SONATYPE_PASSWORD=<maven password>
+SIGNING_PRIVATE_KEY=<base64versionOfTheFile>
+SIGNING_PASSWORD=<gpg key passphrase>
+```
+
+And just tag the release version starting with `v`
+
 ## Contributing
 
-Issues can be logged on [GitHub issues](https://github.com/vitorpamplona/negentropy-kmp/issues). [Pull requests](https://github.com/vitorpamplona/negentropy-kmp/pulls) are very welcome. 
+Issues can be logged on [GitHub issues](https://github.com/vitorpamplona/negentropy-kmp/issues). [Pull requests](https://github.com/vitorpamplona/negentropy-kmp/pulls) are very welcome.
 
 By contributing to this repository, you agree to license your work under the MIT license. Any work contributed where you are not the original author must contain its license header with the original author(s) and source.
 

@@ -1,3 +1,5 @@
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.KotlinMultiplatform
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -52,7 +54,29 @@ android {
 }
 
 mavenPublishing {
-    coordinates(artifactId =  "kmp-negentropy")
+    // sources publishing is always enabled by the Kotlin Multiplatform plugin
+    configure(KotlinMultiplatform(
+        // configures the -javadoc artifact, possible values:
+        // - `JavadocJar.None()` don't publish this artifact
+        // - `JavadocJar.Empty()` publish an emprt jar
+        // - `JavadocJar.Dokka("dokkaHtml")` when using Kotlin with Dokka, where `dokkaHtml` is the name of the Dokka task that should be used as input
+        javadocJar = JavadocJar.Dokka("dokkaHtml"),// JavadocJar.Dokka("dokkaHtml"),
+        // whether to publish a sources jar
+        sourcesJar = true,
+        // configure which Android library variants to publish if this project has an Android target
+        // defaults to "release" when using the main plugin and nothing for the base plugin
+        androidVariantsToPublish = listOf("debug", "release"),
+    ))
+
+    coordinates(
+        artifactId =  "kmp-negentropy"
+    )
+
+    // Configure publishing to Maven Central
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+
+    // Enable GPG signing for all publications
+    signAllPublications()
 
     pom {
         name = "Negentropy Library for Kotlin Multiplatform"
@@ -78,12 +102,6 @@ mavenPublishing {
             connection = "https://github.com/vitorpamplona/kmp-negentropy.git"
         }
     }
-
-    // Configure publishing to Maven Central
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-
-    // Enable GPG signing for all publications
-    signAllPublications()
 }
 
 afterEvaluate {
