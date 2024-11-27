@@ -73,7 +73,8 @@ mavenPublishing {
     )
 
     // Configure publishing to Maven Central
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    //publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    publishToMavenCentral(SonatypeHost.DEFAULT, automaticRelease = true)
 
     // Enable GPG signing for all publications
     signAllPublications()
