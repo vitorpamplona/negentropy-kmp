@@ -36,7 +36,7 @@ On the client-side, create an initial message, and then transmit it to the serve
 
     while (msg !== null) {
         val response = <queryServer>(msg);
-        val result : ReconciliationResult = neServer.reconcile(msgClient)
+        val result = ne.reconcile(msgClient)
         val have = result.needIds
         val need = result.sendIds
         
