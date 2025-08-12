@@ -12,7 +12,7 @@ allprojects {
         kotlin {
             target ("src/**/*.kt")
 
-            ktlint("1.3.1")
+            ktlint()
             licenseHeaderFile(
                 rootProject.file("spotless/copyright.kt"),
                 "package|import|class|object|sealed|open|interface|abstract "
