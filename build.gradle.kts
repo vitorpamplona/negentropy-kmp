@@ -35,5 +35,5 @@ tasks.register<Copy>("installGitHook") {
     from("git-hooks/pre-commit")
     from("git-hooks/pre-push")
     into(".git/hooks")
-    fileMode = 0b111_111_111
+    filePermissions { unix("rwxrwxrwx") }
 }
