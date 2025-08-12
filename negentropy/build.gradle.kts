@@ -54,18 +54,15 @@ android {
 
 mavenPublishing {
     // sources publishing is always enabled by the Kotlin Multiplatform plugin
-    configure(KotlinMultiplatform(
-        // configures the -javadoc artifact, possible values:
-        // - `JavadocJar.None()` don't publish this artifact
-        // - `JavadocJar.Empty()` publish an emprt jar
-        // - `JavadocJar.Dokka("dokkaHtml")` when using Kotlin with Dokka, where `dokkaHtml` is the name of the Dokka task that should be used as input
-        javadocJar = JavadocJar.Dokka("dokkaHtml"),// JavadocJar.Dokka("dokkaHtml"),
-        // whether to publish a sources jar
-        sourcesJar = true,
-        // configure which Android library variants to publish if this project has an Android target
-        // defaults to "release" when using the main plugin and nothing for the base plugin
-        androidVariantsToPublish = listOf("debug", "release"),
-    ))
+    configure(
+        KotlinMultiplatform(
+            // whether to publish a sources jar
+            sourcesJar = true,
+            // configure which Android library variants to publish if this project has an Android target
+            // defaults to "release" when using the main plugin and nothing for the base plugin
+            androidVariantsToPublish = listOf("release"),
+        )
+    )
 
     coordinates(
         artifactId =  "kmp-negentropy"
