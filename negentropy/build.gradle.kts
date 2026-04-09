@@ -24,7 +24,10 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
+    macosX64()
+    macosArm64()
     linuxX64()
+    mingwX64()
 
     sourceSets {
         val commonMain by getting {
@@ -77,7 +80,7 @@ mavenPublishing {
 
     pom {
         name = "Negentropy Library for Kotlin Multiplatform"
-        description = "Negentropy library ported to Kotlin/Multiplatform for JVM, Android, iOS & Linux"
+        description = "Negentropy library ported to Kotlin/Multiplatform for JVM, Android, iOS, macOS, Linux & Windows"
         inceptionYear = "2024"
         url = "https://github.com/vitorpamplona/kmp-negentropy/"
         licenses {
