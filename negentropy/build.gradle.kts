@@ -92,11 +92,9 @@ mavenPublishing {
         )
     )
 
-    coordinates(
-        groupId = "com.vitorpamplona.negentropy",
-        artifactId = "kmp-negentropy",
-        version = "1.0.2",
-    )
+    // groupId, artifactId, and version are configured via gradle.properties
+    // (GROUP, POM_ARTIFACT_ID, VERSION_NAME) so CI can override VERSION_NAME
+    // via ORG_GRADLE_PROJECT_VERSION_NAME without conflicting with a hardcoded value.
 
     // Configure publishing to Maven Central
     publishToMavenCentral(automaticRelease = true)
