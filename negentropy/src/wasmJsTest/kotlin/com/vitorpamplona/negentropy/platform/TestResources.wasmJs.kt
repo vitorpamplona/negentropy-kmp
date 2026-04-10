@@ -27,8 +27,7 @@ actual fun readTestResource(resourceName: String): ByteArray {
     return buffer.toByteArray()
 }
 
-private fun nodeReadFileSync(path: String): JsAny =
-    js("require('fs').readFileSync(path)")
+private fun nodeReadFileSync(path: String): JsAny = js("require('fs').readFileSync(path)")
 
 private fun JsAny.toByteArray(): ByteArray {
     val length = getLength(this)
@@ -39,8 +38,9 @@ private fun JsAny.toByteArray(): ByteArray {
     return result
 }
 
-private fun getLength(buffer: JsAny): Int =
-    js("buffer.length")
+private fun getLength(buffer: JsAny): Int = js("buffer.length")
 
-private fun getByteAt(buffer: JsAny, index: Int): Byte =
-    js("buffer[index]")
+private fun getByteAt(
+    buffer: JsAny,
+    index: Int,
+): Byte = js("buffer[index]")

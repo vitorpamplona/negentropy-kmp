@@ -25,5 +25,7 @@ actual fun readTestResource(resourceName: String): ByteArray {
     val fs = js("require('fs')")
     val path = "src/commonTest/resources$resourceName"
     val buffer = fs.readFileSync(path) as org.khronos.webgl.ArrayBuffer
-    return org.khronos.webgl.Int8Array(buffer).unsafeCast<ByteArray>()
+    return org.khronos.webgl
+        .Int8Array(buffer)
+        .unsafeCast<ByteArray>()
 }
