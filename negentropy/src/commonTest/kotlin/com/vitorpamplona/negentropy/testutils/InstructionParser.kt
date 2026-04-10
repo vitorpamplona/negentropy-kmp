@@ -156,7 +156,7 @@ class InstructionParser {
                 check(ne != null) { "Negentropy not created for this Node ${line.toNode}" }
                 val result = ne.reconcile(command.msg)
 
-                if (ne.frameSizeLimit > 0 && result.msg != null && result.msg!!.size > ne.frameSizeLimit * 2) {
+                if (ne.frameSizeLimit > 0 && result.msg != null && result.msg.size > ne.frameSizeLimit * 2) {
                     throw Error("frameSizeLimit exceeded")
                 }
 
@@ -166,7 +166,7 @@ class InstructionParser {
                 return if (result.msg == null) {
                     "done"
                 } else {
-                    "msg,${result.msg!!.toHexString()}"
+                    "msg,${result.msg.toHexString()}"
                 }
             }
         }
