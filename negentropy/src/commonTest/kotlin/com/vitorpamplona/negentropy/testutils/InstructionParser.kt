@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2024 Vitor Pamplona
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -83,14 +83,23 @@ class InstructionParser {
                 Command.Item(command, created, Id(id))
             }
 
-            "seal" -> Command.Seal(command)
-            "initiate" -> Command.Initiate(command)
+            "seal" -> {
+                Command.Seal(command)
+            }
+
+            "initiate" -> {
+                Command.Initiate(command)
+            }
+
             "msg" -> {
                 if (items.size < 2) throw Error("Message not provided")
                 val q = items[1]
                 Command.Message(command, q.hexToByteArray())
             }
-            else -> throw Error("unknown cmd: ${items[0]}")
+
+            else -> {
+                throw Error("unknown cmd: ${items[0]}")
+            }
         }
     }
 
@@ -125,6 +134,7 @@ class InstructionParser {
 
                 nodes[line.toNode] = Node(Negentropy(StorageVector(), command.frameSizeLimit))
             }
+
             is Command.Item -> {
                 check(ne != null) { "Negentropy not created for this Node ${line.toNode}" }
                 ne.insert(command.created, command.id)

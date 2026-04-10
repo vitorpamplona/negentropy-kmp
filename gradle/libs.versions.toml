@@ -5,6 +5,7 @@ android-minSdk = "24"
 android-compileSdk = "36"
 mavenPublish = "0.34.0"
 spotless = "7.2.1"
+spotless = "8.4.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }

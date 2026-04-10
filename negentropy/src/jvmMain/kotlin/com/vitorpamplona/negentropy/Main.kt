@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2024 Vitor Pamplona
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -105,7 +105,9 @@ fun main() {
                 }
             }
 
-            else -> throw Error("unknown cmd: ${items[0]}")
+            else -> {
+                throw Error("unknown cmd: ${items[0]}")
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2024 Vitor Pamplona
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -82,13 +82,20 @@ class MessageConsumer(
         val currBound = decodeBound()
         val mode = decodeVarInt()
         return when (mode.toInt()) {
-            Mode.Skip.CODE -> Mode.Skip(currBound)
-            Mode.Fingerprint.CODE -> Mode.Fingerprint(currBound, Fingerprint(consumer.readNBytes(Fingerprint.SIZE)))
-            Mode.IdList.CODE ->
+            Mode.Skip.CODE -> {
+                Mode.Skip(currBound)
+            }
+
+            Mode.Fingerprint.CODE -> {
+                Mode.Fingerprint(currBound, Fingerprint(consumer.readNBytes(Fingerprint.SIZE)))
+            }
+
+            Mode.IdList.CODE -> {
                 Mode.IdList(
                     currBound,
                     List(decodeVarInt().toInt()) { Id(consumer.readNBytes(Id.SIZE)) },
                 )
+            }
 
             else -> {
                 throw Error("message.Mode not found")

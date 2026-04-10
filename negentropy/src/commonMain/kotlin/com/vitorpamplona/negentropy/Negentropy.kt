@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2024 Vitor Pamplona
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -88,7 +88,10 @@ class Negentropy(
             var upperIndex = storage.indexAtOrBeforeBound(mode.nextBound, lowerIndex, storage.size())
 
             when (mode) {
-                is Mode.Skip -> builder.addSkip(mode.nextBound)
+                is Mode.Skip -> {
+                    builder.addSkip(mode.nextBound)
+                }
+
                 is Mode.Fingerprint -> {
                     if (mode.fingerprint == fingerprint.run(storage, lowerIndex, upperIndex)) {
                         builder.addSkip(mode.nextBound)

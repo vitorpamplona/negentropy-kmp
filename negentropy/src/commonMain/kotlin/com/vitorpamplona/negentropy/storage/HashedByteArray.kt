@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2024 Vitor Pamplona
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -94,8 +94,12 @@ open class HashedByteArray : Comparable<HashedByteArray> {
             if (bytes[i] > other.bytes[i]) return 1
         }
         return when {
-            bytes.size > other.bytes.size -> 1 // `a` is longer
-            bytes.size < other.bytes.size -> -1 // `b` is longer
+            bytes.size > other.bytes.size -> 1
+
+            // `a` is longer
+            bytes.size < other.bytes.size -> -1
+
+            // `b` is longer
             else -> 0 // Both arrays are equal
         }
     }
