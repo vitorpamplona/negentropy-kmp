@@ -33,7 +33,7 @@ actual fun readTestResource(resourceName: String): ByteArray {
     // split based on "." and "/". We want to strip the leading ./ and
     // split the extension
     val pathParts = resourceName.split("[.|/]".toRegex())
-    val path = NSBundle.mainBundle.pathForResource("resources/${pathParts[1]}", pathParts[2])
+    val path = NSBundle.mainBundle.pathForResource(pathParts[1], pathParts[2], inDirectory = "resources")
     val data = NSData.dataWithContentsOfFile(path!!)
     return data!!.toByteArray()
 }

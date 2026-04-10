@@ -1,50 +1,79 @@
 @file:OptIn(ExperimentalWasmDsl::class)
 
-import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.KotlinMultiplatform
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import com.vanniktech.maven.publish.SourcesJar
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidKotlinMultiplatformLibrary)
     alias(libs.plugins.vanniktech.mavenPublish)
 }
 
-group = "com.vitorpamplona.negentropy"
-version = "1.0.1"
-
 kotlin {
-    jvm()
-    js(IR) {
-        browser()
-        nodejs()
-    }
-    wasmJs {
-        browser()
-        nodejs()
-    }
-    androidTarget {
-        publishLibraryVariants("release")
-        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    jvm {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
+        }
+    }
+
+    android {
+        namespace = "com.vitorpamplona.negentropy"
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_21)
+        }
+
+        withHostTest {}
+
+        withDeviceTest {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
+    }
+
+    js(IR) {
+        browser {
+            testTask {
+                useMocha { timeout = "120s" }
+            }
+        }
+        nodejs {
+            testTask {
+                useMocha { timeout = "120s" }
+            }
+        }
+    }
+    wasmJs {
+        browser {
+            testTask {
+                useMocha { timeout = "120s" }
+            }
+        }
+        nodejs {
+            testTask {
+                useMocha { timeout = "120s" }
+            }
         }
     }
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-    macosX64()
     macosArm64()
     linuxX64()
     mingwX64()
 
     sourceSets {
         val commonMain by getting {
-            dependencies {
-
-            }
+            dependencies { }
         }
         val commonTest by getting {
             dependencies {
@@ -54,36 +83,22 @@ kotlin {
     }
 }
 
-android {
-    namespace = "com.vitorpamplona.negentropy"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-    defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-}
-
 mavenPublishing {
     // sources publishing is always enabled by the Kotlin Multiplatform plugin
     configure(
         KotlinMultiplatform(
             // whether to publish a sources jar
-            sourcesJar = true,
-            // configure which Android library variants to publish if this project has an Android target
-            // defaults to "release" when using the main plugin and nothing for the base plugin
-            androidVariantsToPublish = listOf("release"),
+            sourcesJar = SourcesJar.Sources(),
         )
     )
 
     coordinates(
-        artifactId =  "kmp-negentropy"
+        groupId = "com.vitorpamplona.negentropy",
+        artifactId = "kmp-negentropy",
+        version = "1.0.2",
     )
 
     // Configure publishing to Maven Central
-    //publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
     publishToMavenCentral(automaticRelease = true)
 
     // Enable GPG signing for all publications
@@ -122,7 +137,7 @@ afterEvaluate {
     }
 
     tasks.findByName("copyDebugUnitTestResources")!!.mustRunAfter("processDebugUnitTestJavaRes")
-    tasks.findByName("testDebugUnitTest")!!.dependsOn("copyDebugUnitTestResources")
+    //tasks.findByName("testDebugUnitTest")!!.dependsOn("copyDebugUnitTestResources")
 
     tasks.register<Copy>("copyReleaseUnitTestResources") {
         from("src/commonTest/resources")
@@ -130,12 +145,15 @@ afterEvaluate {
     }
 
     tasks.findByName("copyReleaseUnitTestResources")!!.mustRunAfter("processReleaseUnitTestJavaRes")
-    tasks.findByName("testReleaseUnitTest")!!.dependsOn("copyReleaseUnitTestResources")
+    //tasks.findByName("testReleaseUnitTest")!!.dependsOn("copyReleaseUnitTestResources")
 
-    tasks.register<Copy>("copyiOSTestResources") {
-        from("src/commonTest/resources")
-        into("build/bin/iosSimulatorArm64/debugTest/resources")
+    listOf("iosSimulatorArm64", "iosX64", "iosArm64", "macosArm64", "macosX64").forEach { target ->
+        val taskName = "copy${target.replaceFirstChar { it.uppercaseChar() }}TestResources"
+        tasks.register<Copy>(taskName) {
+            from("src/commonTest/resources")
+            into("build/bin/$target/debugTest/resources")
+        }
+        tasks.findByName("${target}Test")?.dependsOn(taskName)
     }
 
-    tasks.findByName("iosSimulatorArm64Test")!!.dependsOn("copyiOSTestResources")
 }

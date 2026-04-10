@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew :negentropy:jsBrowserTest)",
+      "Bash(./gradlew jsTest --no-configuration-cache)",
+      "Bash(xargs ls:*)",
+      "Bash(./gradlew jsBrowserTest --no-configuration-cache)",
+      "Bash(./gradlew jsBrowserTest --no-configuration-cache --info)",
+      "Bash(./gradlew wasmJsBrowserTest --no-configuration-cache)",
+      "Bash(find:*)",
+      "Bash(./gradlew wasmJsNodeTest --no-configuration-cache)",
+      "Bash(./gradlew kotlinWasmUpgradeYarnLock --no-configuration-cache)",
+      "Bash(./gradlew kotlinUpgradeYarnLock --no-configuration-cache)",
+      "Bash(./gradlew jsNodeTest --no-configuration-cache)",
+      "Bash(./gradlew wasmJsTest --no-configuration-cache)",
+      "Bash(./gradlew check:*)",
+      "Bash(./gradlew clean:*)"
+    ]
+  }
+}

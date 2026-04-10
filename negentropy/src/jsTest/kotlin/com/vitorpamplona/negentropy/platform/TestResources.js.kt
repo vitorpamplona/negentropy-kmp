@@ -22,10 +22,19 @@ package com.vitorpamplona.negentropy.platform
 
 /** Read the given resource as binary data. */
 actual fun readTestResource(resourceName: String): ByteArray {
-    val fs = js("require('fs')")
-    val path = "src/commonTest/resources$resourceName"
-    val buffer = fs.readFileSync(path) as org.khronos.webgl.ArrayBuffer
-    return org.khronos.webgl
-        .Int8Array(buffer)
-        .unsafeCast<ByteArray>()
+    // unsafeCast avoids Kotlin/JS IR runtime type-check failures on JS primitives.
+    val typeofWindow = js("typeof window").unsafeCast<String>()
+    return if (typeofWindow == "undefined") {
+        // Node.js: resources are in the kotlin/ output directory.
+        // Read as UTF-8 text to avoid Node.js Buffer-to-ArrayBuffer cast issues.
+        val path = "kotlin$resourceName"
+        val content = js("require('fs').readFileSync(path, 'utf8')").unsafeCast<String>()
+        content.encodeToByteArray()
+    } else {
+        // Browser (karma): resources are served by the karma server at /base/kotlin/<name>.
+        // Use synchronous XHR to fetch the file content.
+        val url = "/base/kotlin$resourceName"
+        val content = js("(function(u){var x=new XMLHttpRequest();x.open('GET',u,false);x.send(null);return x.responseText;})(url)").unsafeCast<String>()
+        content.encodeToByteArray()
+    }
 }
