@@ -14,6 +14,14 @@ version = "1.0.1"
 
 kotlin {
     jvm()
+    js(IR) {
+        browser()
+        nodejs()
+    }
+    wasmJs {
+        browser()
+        nodejs()
+    }
     androidTarget {
         publishLibraryVariants("release")
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
@@ -80,7 +88,7 @@ mavenPublishing {
 
     pom {
         name = "Negentropy Library for Kotlin Multiplatform"
-        description = "Negentropy library ported to Kotlin/Multiplatform for JVM, Android, iOS, macOS, Linux & Windows"
+        description = "Negentropy library ported to Kotlin/Multiplatform for JVM, JS, WasmJS, Android, iOS, macOS, Linux & Windows"
         inceptionYear = "2024"
         url = "https://github.com/vitorpamplona/kmp-negentropy/"
         licenses {
