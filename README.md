@@ -22,6 +22,26 @@ Add all the items in your collection with `insert(timestamp, hash)` and call `se
 *  `timestamp` should be a unix timestamp
 *  `id` should be a byte array of the event id
 
+### Faster fingerprints
+
+Reconciliation repeatedly asks the storage for the fingerprint of a range of
+ids. `StorageVector` computes each one by walking the range. For large,
+frequently-reconciled snapshots you can instead use `PrefixSumStorageVector`,
+a drop-in replacement that builds an additive prefix-sum table at `seal()` and
+answers any range fingerprint in O(1) (one 256-bit subtraction plus one
+sha256) rather than O(range):
+
+    PrefixSumStorageVector().apply {
+        insert(1678011277, "eb6b05c2e3b008592ac666594d78ed83e7b9ab30f825b9b08878128f7500008c")
+        insert(1678011278, "39b916432333e069a4386917609215cc688eb99f06fed01aadc29b1b4b92d6f0")
+
+        seal()
+    }
+
+It produces byte-identical fingerprints to `StorageVector`, at the cost of an
+O(n) table rebuild on every `seal()`. Any `IStorage` can override
+`fingerprint(begin, end)` to plug in its own acceleration.
+
 ## Reconciliation
 
 Create a Negentropy object:

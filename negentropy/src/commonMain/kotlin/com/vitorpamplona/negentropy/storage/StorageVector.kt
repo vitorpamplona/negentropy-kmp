@@ -20,9 +20,13 @@
  */
 package com.vitorpamplona.negentropy.storage
 
+import com.vitorpamplona.negentropy.fingerprint.Fingerprint
+import com.vitorpamplona.negentropy.fingerprint.FingerprintCalculator
+
 class StorageVector : IStorage {
     private val items = mutableListOf<StorageUnit>()
     private var sealed = false
+    private val fingerprintCalculator = FingerprintCalculator()
 
     override fun insert(
         timestamp: Long,
@@ -137,6 +141,15 @@ class StorageVector : IStorage {
 
         // if the item is not found, it returns negative
         return if (second < 0) -second - 1 else second
+    }
+
+    override fun fingerprint(
+        begin: Int,
+        end: Int,
+    ): Fingerprint {
+        checkSealed()
+        checkBounds(begin, end)
+        return fingerprintCalculator.run(this, begin, end)
     }
 
     private fun checkSealed() = check(sealed) { "not sealed" }

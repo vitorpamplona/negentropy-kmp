@@ -20,7 +20,6 @@
  */
 package com.vitorpamplona.negentropy
 
-import com.vitorpamplona.negentropy.fingerprint.FingerprintCalculator
 import com.vitorpamplona.negentropy.message.MessageBuilder
 import com.vitorpamplona.negentropy.message.MessageConsumer
 import com.vitorpamplona.negentropy.message.Mode
@@ -42,8 +41,6 @@ class Negentropy(
     init {
         require(frameSizeLimit == 0L || frameSizeLimit >= MIN_FRAME_SIZE) { "frameSizeLimit too small" }
     }
-
-    private val fingerprint = FingerprintCalculator()
 
     internal fun insert(
         timestamp: Long,
@@ -93,7 +90,7 @@ class Negentropy(
                 }
 
                 is Mode.Fingerprint -> {
-                    if (mode.fingerprint == fingerprint.run(storage, lowerIndex, upperIndex)) {
+                    if (mode.fingerprint == storage.fingerprint(lowerIndex, upperIndex)) {
                         builder.addSkip(mode.nextBound)
                     } else {
                         val lineBuilder = builder.branch()
@@ -107,7 +104,7 @@ class Negentropy(
                             builder.addFingerprint(
                                 Mode.Fingerprint(
                                     Bound(Long.MAX_VALUE),
-                                    fingerprint.run(storage, upperIndex, storage.size()),
+                                    storage.fingerprint(upperIndex, storage.size()),
                                 ),
                             )
                             break
@@ -133,7 +130,7 @@ class Negentropy(
                             builder.addFingerprint(
                                 Mode.Fingerprint(
                                     Bound(Long.MAX_VALUE),
-                                    fingerprint.run(storage, upperIndex, storage.size()),
+                                    storage.fingerprint(upperIndex, storage.size()),
                                 ),
                             )
                             break
@@ -213,7 +210,7 @@ class Negentropy(
 
             List(BUCKETS_IN_MESSAGE) {
                 val bucketSize = itemsPerBucket + if (it < bucketsWithExtra) 1 else 0
-                val ourFingerprint = fingerprint.run(storage, currIndex, currIndex + bucketSize)
+                val ourFingerprint = storage.fingerprint(currIndex, currIndex + bucketSize)
                 currIndex += bucketSize
 
                 val nextBound =

@@ -20,6 +20,8 @@
  */
 package com.vitorpamplona.negentropy.storage
 
+import com.vitorpamplona.negentropy.fingerprint.Fingerprint
+
 interface IStorage {
     fun insert(
         timestamp: Long,
@@ -66,4 +68,15 @@ interface IStorage {
     ): Int
 
     fun findTimestamp(id: Id): Long
+
+    /**
+     * Computes the negentropy fingerprint of the ids in the half-open range
+     * [begin, end). Implementations are free to answer this faster than a full
+     * range walk (e.g. from a prefix-sum table), as long as the result stays
+     * byte-identical to summing every id in the range and hashing it.
+     */
+    fun fingerprint(
+        begin: Int,
+        end: Int,
+    ): Fingerprint
 }
