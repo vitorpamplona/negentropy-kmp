@@ -92,8 +92,13 @@ class StorageVector : IStorage {
         // Sort item indices by (timestamp, id bytes), then gather the timestamps and ids
         // into fresh, exactly-sized buffers in sorted order. Sorting an index array avoids
         // moving 40-byte records during partitioning; the gather is a single sequential pass.
-        val order = IntArray(n) { it }
-        quicksortIndices(order, 0, n - 1)
+        //
+        // Timestamps are the primary key, so we LSD radix-sort the indices on the timestamp
+        // (linear and cache-friendly, no per-comparison indirection) and only fall back to a
+        // comparison sort to break ties within equal-timestamp runs by id. This produces
+        // exactly the same order as a full (timestamp, id) comparison sort.
+        val order = radixSortIndicesByTimestamp(n)
+        resolveTimestampTiesById(order, n)
 
         val sortedTimestamps = LongArray(n)
         val sortedIds = ByteArray(n * Id.SIZE)
@@ -287,6 +292,73 @@ class StorageVector : IStorage {
         return Id.SIZE.compareTo(prefix.size)
     }
 
+    // ---- timestamp radix sort + id tie-break ----
+
+    /**
+     * Stable LSD radix sort of the item indices by timestamp. Timestamps are XORed with
+     * [Long.MIN_VALUE] so signed-Long order matches unsigned byte order (correct even for
+     * negative timestamps), and byte passes over lanes that are constant across all items
+     * are skipped, so typical timestamps (which vary in only a few low bytes) cost only a
+     * few linear passes.
+     */
+    private fun radixSortIndicesByTimestamp(n: Int): IntArray {
+        var from = IntArray(n) { it }
+        if (n < 2) return from
+
+        // Find which byte lanes actually differ between items so constant passes are skipped.
+        var orAll = 0L
+        var andAll = -1L
+        for (i in 0 until n) {
+            val key = timestamps[i] xor Long.MIN_VALUE
+            orAll = orAll or key
+            andAll = andAll and key
+        }
+        val varying = orAll xor andAll
+
+        var to = IntArray(n)
+        val counts = IntArray(RADIX + 1)
+        var shift = 0
+        while (shift < Long.SIZE_BITS) {
+            if ((varying ushr shift) and 0xFFL != 0L) {
+                counts.fill(0)
+                for (i in 0 until n) {
+                    val d = ((timestamps[from[i]] xor Long.MIN_VALUE) ushr shift and 0xFFL).toInt()
+                    counts[d + 1]++
+                }
+                for (i in 0 until RADIX) counts[i + 1] += counts[i]
+                for (i in 0 until n) {
+                    val d = ((timestamps[from[i]] xor Long.MIN_VALUE) ushr shift and 0xFFL).toInt()
+                    to[counts[d]++] = from[i]
+                }
+                val tmp = from
+                from = to
+                to = tmp
+            }
+            shift += 8
+        }
+        return from
+    }
+
+    /**
+     * After the timestamp radix sort, items sharing a timestamp are contiguous but not yet
+     * ordered by id. Sort each such run by id (timestamps are equal, so [compareItems] falls
+     * through to the id bytes). Runs are usually tiny; large runs use the O(k log k)
+     * quicksort rather than an O(k^2) insertion sort.
+     */
+    private fun resolveTimestampTiesById(
+        order: IntArray,
+        n: Int,
+    ) {
+        var i = 0
+        while (i < n) {
+            val ts = timestamps[order[i]]
+            var j = i + 1
+            while (j < n && timestamps[order[j]] == ts) j++
+            if (j - i > 1) quicksortIndices(order, i, j - 1)
+            i = j
+        }
+    }
+
     // ---- index quicksort (median-of-three, insertion-sort cutoff) ----
 
     private fun quicksortIndices(
@@ -388,5 +460,6 @@ class StorageVector : IStorage {
     companion object {
         private const val INITIAL_CAPACITY = 16
         private const val INSERTION_SORT_CUTOFF = 32
+        private const val RADIX = 256
     }
 }
