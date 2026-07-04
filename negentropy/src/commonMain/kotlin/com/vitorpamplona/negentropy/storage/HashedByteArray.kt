@@ -61,17 +61,34 @@ open class HashedByteArray : Comparable<HashedByteArray> {
             }
 
         internal fun hexToByteArray(hex: String): ByteArray {
+            val out = ByteArray(hex.length / 2)
+            hexInto(hex, out, 0)
+            return out
+        }
+
+        /**
+         * Decodes [hex] into [dest] starting at [destOffset] without allocating an
+         * intermediate array, so a flat-buffer storage can decode ids straight into place.
+         */
+        internal fun hexInto(
+            hex: String,
+            dest: ByteArray,
+            destOffset: Int,
+        ) {
             val len = hex.length
             require(len and 1 == 0) { "Not a valid hex: odd length $len" }
 
             val table = HEX_NIBBLE
-            return ByteArray(len / 2) {
+            var i = 0
+            var j = destOffset
+            while (i < len) {
                 // char.code >= 256 (e.g. non-latin unicode) indexes out of the table and
                 // throws, so it is rejected just like an in-range non-hex char below.
-                val hi = table[hex[2 * it].code]
-                val lo = table[hex[2 * it + 1].code]
+                val hi = table[hex[i].code]
+                val lo = table[hex[i + 1].code]
                 require((hi or lo) >= 0) { "Not a valid hex: $hex" }
-                ((hi shl 4) or lo).toByte()
+                dest[j++] = ((hi shl 4) or lo).toByte()
+                i += 2
             }
         }
     }

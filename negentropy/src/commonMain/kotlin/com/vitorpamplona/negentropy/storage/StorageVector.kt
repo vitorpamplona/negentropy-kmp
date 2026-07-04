@@ -23,33 +23,91 @@ package com.vitorpamplona.negentropy.storage
 import com.vitorpamplona.negentropy.fingerprint.Fingerprint
 import com.vitorpamplona.negentropy.fingerprint.FingerprintCalculator
 
+/**
+ * Sorted, sealed snapshot of (timestamp, id) items backing a Negentropy session.
+ *
+ * Items are kept in two parallel primitive buffers rather than a list of objects: a
+ * [LongArray] of timestamps and one contiguous [ByteArray] holding every 32-byte id
+ * back to back (id `i` occupies bytes `[i * Id.SIZE, (i + 1) * Id.SIZE)`). A snapshot of
+ * `n` items is therefore two allocations, not `3n` ([StorageUnit] + [Id] + its byte array)
+ * kept alive for the whole session. That removes the per-id allocation and GC pressure
+ * that dominated loading, keeps the sorted data cache-friendly, and lets the fingerprint
+ * walk and the bound binary search read straight out of the buffer with no boxing. This
+ * mirrors how the C++ reference stores ids inline.
+ *
+ * [StorageUnit]/[Id] objects are still materialized lazily at the API boundary (e.g.
+ * [getItem], [forEach], the ids handed back to callers), so the public contract is
+ * unchanged.
+ */
 class StorageVector : IStorage {
-    private val items = mutableListOf<StorageUnit>()
+    private var timestamps = LongArray(INITIAL_CAPACITY)
+    private var ids = ByteArray(INITIAL_CAPACITY * Id.SIZE)
+    private var count = 0
     private var sealed = false
     private val fingerprintCalculator = FingerprintCalculator()
 
     override fun insert(
         timestamp: Long,
         idHex: String,
-    ) = insert(timestamp, Id(idHex))
+    ) {
+        check(!sealed) { "already sealed" }
+        val slot = allocateSlot()
+        // decode the id straight into its slot; no intermediate Id/ByteArray is allocated
+        HashedByteArray.hexInto(idHex, ids, slot * Id.SIZE)
+        timestamps[slot] = timestamp
+    }
 
     override fun insert(
         timestamp: Long,
         id: Id,
     ) {
         check(!sealed) { "already sealed" }
+        require(id.bytes.size == Id.SIZE) { "Id with invalid size. Expected ${Id.SIZE}, found ${id.bytes.size}" }
+        val slot = allocateSlot()
+        id.bytes.copyInto(ids, slot * Id.SIZE)
+        timestamps[slot] = timestamp
+    }
 
-        items.add(StorageUnit(timestamp, id))
+    private fun allocateSlot(): Int {
+        ensureCapacity(count + 1)
+        return count++
+    }
+
+    private fun ensureCapacity(minCapacity: Int) {
+        val currentCapacity = timestamps.size
+        if (minCapacity <= currentCapacity) return
+
+        var newCapacity = currentCapacity + (currentCapacity shr 1) // grow ~1.5x
+        if (newCapacity < minCapacity) newCapacity = minCapacity
+
+        timestamps = timestamps.copyOf(newCapacity)
+        ids = ids.copyOf(newCapacity * Id.SIZE)
     }
 
     override fun seal() {
         sealed = true
 
-        items.sort()
+        val n = count
 
-        // checks if there are no duplicates
-        for (i in 1 until items.size) {
-            check(items[i - 1].compareTo(items[i]) != 0) { "duplicate item inserted" }
+        // Sort item indices by (timestamp, id bytes), then gather the timestamps and ids
+        // into fresh, exactly-sized buffers in sorted order. Sorting an index array avoids
+        // moving 40-byte records during partitioning; the gather is a single sequential pass.
+        val order = IntArray(n) { it }
+        quicksortIndices(order, 0, n - 1)
+
+        val sortedTimestamps = LongArray(n)
+        val sortedIds = ByteArray(n * Id.SIZE)
+        for (i in 0 until n) {
+            val src = order[i]
+            sortedTimestamps[i] = timestamps[src]
+            ids.copyInto(sortedIds, i * Id.SIZE, src * Id.SIZE, src * Id.SIZE + Id.SIZE)
+        }
+        timestamps = sortedTimestamps
+        ids = sortedIds
+
+        // checks if there are no duplicates (adjacent equal items after sorting)
+        for (i in 1 until n) {
+            check(compareItems(i - 1, i) != 0) { "duplicate item inserted" }
         }
     }
 
@@ -57,16 +115,20 @@ class StorageVector : IStorage {
         sealed = false
     }
 
-    override fun size() = items.size
+    override fun size() = count
 
     override fun getItem(index: Int): StorageUnit {
         checkSealed()
-        return items[index]
+        return unitAt(index)
     }
 
     override fun <T> map(run: (StorageUnit) -> T): List<T> {
         checkSealed()
-        return items.map(run)
+        val list = ArrayList<T>(count)
+        for (i in 0 until count) {
+            list.add(run(unitAt(i)))
+        }
+        return list
     }
 
     override fun <T> map(
@@ -79,12 +141,10 @@ class StorageVector : IStorage {
 
         if (begin == end) return emptyList()
 
-        val list = mutableListOf<T>()
-
+        val list = ArrayList<T>(end - begin)
         for (i in begin until end) {
-            list.add(run(items[i]))
+            list.add(run(unitAt(i)))
         }
-
         return list
     }
 
@@ -99,15 +159,14 @@ class StorageVector : IStorage {
         if (begin == end) return
 
         for (i in begin until end) {
-            run(items[i])
+            run(unitAt(i))
         }
     }
 
     override fun findTimestamp(id: Id): Long {
-        for (i in items.indices) {
-            if (items[i].id.equalsId(id)) {
-                return items[i].timestamp
-            }
+        val target = id.bytes
+        for (i in 0 until count) {
+            if (idEquals(i, target)) return timestamps[i]
         }
         return -1
     }
@@ -123,7 +182,7 @@ class StorageVector : IStorage {
         if (begin == end) return
 
         for (i in begin until end) {
-            if (!shouldContinue(items[i], i)) break
+            if (!shouldContinue(unitAt(i), i)) break
         }
     }
 
@@ -137,10 +196,21 @@ class StorageVector : IStorage {
 
         if (begin == end) return begin
 
-        val second = items.binarySearch(bound.toStorage(), begin, end)
-
-        // if the item is not found, it returns negative
-        return if (second < 0) -second - 1 else second
+        // Binary search for the first index whose item is >= bound, mirroring the semantics
+        // of List.binarySearch(bound.toStorage()) but comparing straight against the flat
+        // buffers so no StorageUnit/Id is allocated per search.
+        var low = begin
+        var high = end - 1
+        while (low <= high) {
+            val mid = (low + high) ushr 1
+            val cmp = compareItemToBound(mid, bound)
+            when {
+                cmp < 0 -> low = mid + 1
+                cmp > 0 -> high = mid - 1
+                else -> return mid
+            }
+        }
+        return low
     }
 
     override fun fingerprint(
@@ -149,7 +219,163 @@ class StorageVector : IStorage {
     ): Fingerprint {
         checkSealed()
         checkBounds(begin, end)
-        return fingerprintCalculator.run(this, begin, end)
+        return fingerprintCalculator.runFlat(ids, begin, end)
+    }
+
+    // ---------------------------------------------------------------------
+    // internals
+    // ---------------------------------------------------------------------
+
+    private fun unitAt(index: Int): StorageUnit = StorageUnit(timestamps[index], idAt(index))
+
+    private fun idAt(index: Int): Id {
+        val offset = index * Id.SIZE
+        return Id(ids.copyOfRange(offset, offset + Id.SIZE))
+    }
+
+    private fun idEquals(
+        index: Int,
+        target: ByteArray,
+    ): Boolean {
+        val offset = index * Id.SIZE
+        for (k in 0 until Id.SIZE) {
+            if (ids[offset + k] != target[k]) return false
+        }
+        return true
+    }
+
+    /** Compares the sorted items at [a] and [b] by (timestamp, unsigned id bytes). */
+    private fun compareItems(
+        a: Int,
+        b: Int,
+    ): Int {
+        val ta = timestamps[a]
+        val tb = timestamps[b]
+        if (ta != tb) return if (ta < tb) -1 else 1
+
+        val oa = a * Id.SIZE
+        val ob = b * Id.SIZE
+        for (k in 0 until Id.SIZE) {
+            val x = ids[oa + k].toInt() and 0xFF
+            val y = ids[ob + k].toInt() and 0xFF
+            if (x != y) return x - y
+        }
+        return 0
+    }
+
+    /**
+     * Compares the item at [index] against [bound], matching StorageUnit/HashedByteArray
+     * ordering: timestamp first, then the id bytes against the (possibly shorter) bound
+     * prefix; if the prefix is a prefix of the id, the shorter prefix sorts first.
+     */
+    private fun compareItemToBound(
+        index: Int,
+        bound: Bound,
+    ): Int {
+        val ts = timestamps[index]
+        if (ts != bound.timestamp) return if (ts < bound.timestamp) -1 else 1
+
+        val prefix = bound.prefix.bytes
+        val offset = index * Id.SIZE
+        val shared = if (prefix.size < Id.SIZE) prefix.size else Id.SIZE
+        for (k in 0 until shared) {
+            val x = ids[offset + k].toInt() and 0xFF
+            val y = prefix[k].toInt() and 0xFF
+            if (x != y) return x - y
+        }
+        // all shared bytes equal: the longer sequence sorts after the shorter one
+        return Id.SIZE.compareTo(prefix.size)
+    }
+
+    // ---- index quicksort (median-of-three, insertion-sort cutoff) ----
+
+    private fun quicksortIndices(
+        order: IntArray,
+        lowStart: Int,
+        highStart: Int,
+    ) {
+        var low = lowStart
+        var high = highStart
+        // Recurse into the smaller side, loop on the larger, to bound stack depth to O(log n).
+        while (low < high) {
+            if (high - low < INSERTION_SORT_CUTOFF) {
+                insertionSortIndices(order, low, high)
+                return
+            }
+
+            val p = partition(order, low, high)
+            if (p - low < high - p) {
+                quicksortIndices(order, low, p - 1)
+                low = p + 1
+            } else {
+                quicksortIndices(order, p + 1, high)
+                high = p - 1
+            }
+        }
+    }
+
+    private fun partition(
+        order: IntArray,
+        low: Int,
+        high: Int,
+    ): Int {
+        val mid = (low + high) ushr 1
+        // median-of-three pivot selection on low/mid/high to avoid quadratic behavior
+        if (compareByOrder(order, mid, low) < 0) swap(order, mid, low)
+        if (compareByOrder(order, high, low) < 0) swap(order, high, low)
+        if (compareByOrder(order, high, mid) < 0) swap(order, high, mid)
+        // place pivot (order[mid]) at high-1
+        swap(order, mid, high - 1)
+        val pivot = order[high - 1]
+
+        var i = low
+        var j = high - 1
+        while (true) {
+            while (compareIndexToItem(order[++i], pivot) < 0) { /* advance */ }
+            while (compareIndexToItem(order[--j], pivot) > 0) { /* advance */ }
+            if (i >= j) break
+            swap(order, i, j)
+        }
+        swap(order, i, high - 1) // restore pivot
+        return i
+    }
+
+    private fun insertionSortIndices(
+        order: IntArray,
+        low: Int,
+        high: Int,
+    ) {
+        for (i in low + 1..high) {
+            val v = order[i]
+            var j = i - 1
+            while (j >= low && compareIndexToItem(order[j], v) > 0) {
+                order[j + 1] = order[j]
+                j--
+            }
+            order[j + 1] = v
+        }
+    }
+
+    private fun compareByOrder(
+        order: IntArray,
+        a: Int,
+        b: Int,
+    ): Int = compareItems(order[a], order[b])
+
+    /** Compares two original item indices (pre-sort buffers). */
+    private fun compareIndexToItem(
+        a: Int,
+        b: Int,
+    ): Int = compareItems(a, b)
+
+    private fun swap(
+        order: IntArray,
+        a: Int,
+        b: Int,
+    ) {
+        val t = order[a]
+        order[a] = order[b]
+        order[b] = t
     }
 
     private fun checkSealed() = check(sealed) { "not sealed" }
@@ -157,5 +383,10 @@ class StorageVector : IStorage {
     private fun checkBounds(
         begin: Int,
         end: Int,
-    ) = check(begin <= end && end <= items.size) { "bad range" }
+    ) = check(begin <= end && end <= count) { "bad range" }
+
+    companion object {
+        private const val INITIAL_CAPACITY = 16
+        private const val INSERTION_SORT_CUTOFF = 32
+    }
 }
