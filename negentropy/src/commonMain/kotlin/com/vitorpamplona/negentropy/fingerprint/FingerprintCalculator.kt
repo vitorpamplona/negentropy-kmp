@@ -52,12 +52,118 @@ class FingerprintCalculator {
     ): Fingerprint {
         if (begin == end) return ZERO_RANGE_FINGERPRINT
 
-        buf.fill(0)
+        // Accumulate each id into eight 64-bit little-endian lanes with deferred carry
+        // instead of re-reading and re-writing the 32-byte buffer on every id (as repeated
+        // Accumulator256.add would). A single carry-propagation pass at the end reduces the
+        // lanes back to 256 bits, producing the exact same sum (mod 2^256), hence the same
+        // fingerprint. Long lanes hold the sum safely for any realistic id count.
+        var l0 = 0L
+        var l1 = 0L
+        var l2 = 0L
+        var l3 = 0L
+        var l4 = 0L
+        var l5 = 0L
+        var l6 = 0L
+        var l7 = 0L
 
         storage.forEach(begin, end) { item ->
-            Accumulator256.add(buf, item.id.bytes)
+            val b = item.id.bytes
+            l0 += le32(b, 0)
+            l1 += le32(b, 4)
+            l2 += le32(b, 8)
+            l3 += le32(b, 12)
+            l4 += le32(b, 16)
+            l5 += le32(b, 20)
+            l6 += le32(b, 24)
+            l7 += le32(b, 28)
         }
 
-        return fingerprintOf(buf, end - begin)
+        return finish(l0, l1, l2, l3, l4, l5, l6, l7, end - begin)
+    }
+
+    /**
+     * Same accumulation as [run], but reads the ids straight out of a flat, contiguous
+     * `count * Id.SIZE` buffer (id `i` occupies bytes `[i * Id.SIZE, (i + 1) * Id.SIZE)`)
+     * instead of through per-item [StorageUnit]/[Id] objects. This keeps the fingerprint
+     * hot path allocation-free for a flat-buffer storage.
+     */
+    fun runFlat(
+        idBuffer: ByteArray,
+        begin: Int,
+        end: Int,
+    ): Fingerprint {
+        if (begin == end) return ZERO_RANGE_FINGERPRINT
+
+        var l0 = 0L
+        var l1 = 0L
+        var l2 = 0L
+        var l3 = 0L
+        var l4 = 0L
+        var l5 = 0L
+        var l6 = 0L
+        var l7 = 0L
+
+        var off = begin * Id.SIZE
+        val stop = end * Id.SIZE
+        while (off < stop) {
+            l0 += le32(idBuffer, off)
+            l1 += le32(idBuffer, off + 4)
+            l2 += le32(idBuffer, off + 8)
+            l3 += le32(idBuffer, off + 12)
+            l4 += le32(idBuffer, off + 16)
+            l5 += le32(idBuffer, off + 20)
+            l6 += le32(idBuffer, off + 24)
+            l7 += le32(idBuffer, off + 28)
+            off += Id.SIZE
+        }
+
+        return finish(l0, l1, l2, l3, l4, l5, l6, l7, end - begin)
+    }
+
+    private fun finish(
+        l0: Long,
+        l1: Long,
+        l2: Long,
+        l3: Long,
+        l4: Long,
+        l5: Long,
+        l6: Long,
+        l7: Long,
+        count: Int,
+    ): Fingerprint {
+        val out = buf
+        var carry = writeLane(out, 0, l0, 0L)
+        carry = writeLane(out, 4, l1, carry)
+        carry = writeLane(out, 8, l2, carry)
+        carry = writeLane(out, 12, l3, carry)
+        carry = writeLane(out, 16, l4, carry)
+        carry = writeLane(out, 20, l5, carry)
+        carry = writeLane(out, 24, l6, carry)
+        writeLane(out, 28, l7, carry)
+
+        return fingerprintOf(out, count)
+    }
+
+    private fun le32(
+        b: ByteArray,
+        o: Int,
+    ): Long =
+        (b[o].toLong() and 0xFF) or
+            ((b[o + 1].toLong() and 0xFF) shl 8) or
+            ((b[o + 2].toLong() and 0xFF) shl 16) or
+            ((b[o + 3].toLong() and 0xFF) shl 24)
+
+    private fun writeLane(
+        b: ByteArray,
+        o: Int,
+        lane: Long,
+        carryIn: Long,
+    ): Long {
+        val v = lane + carryIn
+        b[o] = (v and 0xFF).toByte()
+        b[o + 1] = ((v shr 8) and 0xFF).toByte()
+        b[o + 2] = ((v shr 16) and 0xFF).toByte()
+        b[o + 3] = ((v shr 24) and 0xFF).toByte()
+        return v ushr 32
     }
 }

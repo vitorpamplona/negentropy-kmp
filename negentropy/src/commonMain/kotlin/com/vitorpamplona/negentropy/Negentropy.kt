@@ -64,8 +64,14 @@ class Negentropy(
     fun isInitiator() = isInitiator
 
     fun reconcile(query: ByteArray): ReconciliationResult {
-        val haveIds = mutableSetOf<Id>()
-        val needIds = mutableSetOf<Id>()
+        // Collect have/need in plain lists (as the C++/JS reference does) rather than sets,
+        // avoiding the hashing/allocation cost of a set on the hot path. For a conformant
+        // peer every id is emitted at most once per call: our storage ids are globally unique
+        // and the peer's id-list ranges are disjoint. As already documented, the caller must
+        // tolerate duplicate have/need ids across calls (and, from a malformed peer, within a
+        // call), so this does not change the contract.
+        val haveIds = ArrayList<Id>()
+        val needIds = ArrayList<Id>()
 
         val consumer = MessageConsumer(query)
         val protocolVersion = consumer.decodeProtocolVersion()
@@ -144,8 +150,8 @@ class Negentropy(
 
         return ReconciliationResult(
             if (builder.length() == 1 && isInitiator) null else builder.toByteArray(),
-            haveIds.toList(),
-            needIds.toList(),
+            haveIds,
+            needIds,
         )
     }
 
@@ -175,8 +181,8 @@ class Negentropy(
         ids: List<Id>,
         lowerIndex: Int,
         upperIndex: Int,
-        haves: MutableSet<Id>,
-        needs: MutableSet<Id>,
+        haves: MutableList<Id>,
+        needs: MutableList<Id>,
     ) {
         if (lowerIndex == upperIndex) {
             // nothing to filter in the local db
