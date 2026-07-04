@@ -60,12 +60,15 @@ class PrefixSumStorageVector(
         val size = base.size()
         val table = ByteArray((size + 1) * Id.SIZE) // slot 0 stays zero-filled
 
+        // Read ids straight from the sorted flat buffer instead of materializing an Id per
+        // item via getItem(), so the table rebuild allocates nothing per element.
+        val idBuffer = base.idBuffer()
         for (i in 0 until size) {
             val prev = i * Id.SIZE
             val curr = (i + 1) * Id.SIZE
             // prefix[i+1] = prefix[i] + id[i]
             table.copyInto(table, curr, prev, curr)
-            Accumulator256.add(table, base.getItem(i).id.bytes, baseOffset = curr)
+            Accumulator256.add(table, idBuffer, baseOffset = curr, toAddOffset = i * Id.SIZE)
         }
 
         prefix = table

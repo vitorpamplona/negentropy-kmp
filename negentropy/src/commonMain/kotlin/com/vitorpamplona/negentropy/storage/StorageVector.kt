@@ -51,6 +51,8 @@ class StorageVector : IStorage {
         idHex: String,
     ) {
         check(!sealed) { "already sealed" }
+        // matches the fail-fast size check the old insert(timestamp, Id(idHex)) path enforced
+        require(idHex.length == Id.SIZE * 2) { "Id with invalid size. Expected ${Id.SIZE * 2} hex chars, found ${idHex.length}" }
         val slot = allocateSlot()
         // decode the id straight into its slot; no intermediate Id/ByteArray is allocated
         HashedByteArray.hexInto(idHex, ids, slot * Id.SIZE)
@@ -201,9 +203,9 @@ class StorageVector : IStorage {
 
         if (begin == end) return begin
 
-        // Binary search for the first index whose item is >= bound, mirroring the semantics
-        // of List.binarySearch(bound.toStorage()) but comparing straight against the flat
-        // buffers so no StorageUnit/Id is allocated per search.
+        // Binary search for the first index whose item is >= bound (the insertion point when
+        // absent, the match index when present), comparing straight against the flat buffers
+        // so no StorageUnit/Id is allocated per search.
         var low = begin
         var high = end - 1
         while (low <= high) {
@@ -226,6 +228,14 @@ class StorageVector : IStorage {
         checkBounds(begin, end)
         return fingerprintCalculator.runFlat(ids, begin, end)
     }
+
+    /**
+     * The flat, sorted id buffer: id [index] occupies bytes `[index * Id.SIZE, (index + 1) *
+     * Id.SIZE)`. Exposed so accelerated storages layered on this one (e.g. the prefix-sum
+     * table) can read ids in bulk without materializing an [Id] per item. Only valid while
+     * sealed, and callers must treat it as read-only.
+     */
+    internal fun idBuffer(): ByteArray = ids
 
     // ---------------------------------------------------------------------
     // internals

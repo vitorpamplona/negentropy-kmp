@@ -36,6 +36,4 @@ class Bound(
         } else {
             timestamp.compareTo(other.timestamp)
         }
-
-    internal fun toStorage() = StorageUnit(timestamp, Id(prefix.bytes, true))
 }

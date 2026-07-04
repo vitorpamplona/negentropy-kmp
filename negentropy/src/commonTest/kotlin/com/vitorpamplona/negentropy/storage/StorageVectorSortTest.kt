@@ -63,7 +63,9 @@ class StorageVectorSortTest {
         for (i in n - 1 downTo 1) {
             r = (r * 1103515245 + 12345) and 0x7fffffff
             val j = r % (i + 1)
-            val t = order[i]; order[i] = order[j]; order[j] = t
+            val t = order[i]
+            order[i] = order[j]
+            order[j] = t
         }
 
         val storage = StorageVector()
@@ -85,6 +87,18 @@ class StorageVectorSortTest {
             storage.seal()
             assertEquals(n, storage.size())
             assertFullySorted(storage)
+        }
+    }
+
+    @Test
+    fun rejectsWrongLengthHexOnInsert() {
+        // the hex-insert path must fail fast on ids that are not exactly 32 bytes,
+        // matching the old insert(timestamp, Id(idHex)) behaviour
+        assertFailsWith<IllegalArgumentException> {
+            StorageVector().insert(1000L, "abcd") // 2 bytes
+        }
+        assertFailsWith<IllegalArgumentException> {
+            StorageVector().insert(1000L, idHex(1) + "ff") // 33 bytes
         }
     }
 

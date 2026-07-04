@@ -64,10 +64,12 @@ class Negentropy(
     fun isInitiator() = isInitiator
 
     fun reconcile(query: ByteArray): ReconciliationResult {
-        // Within a single reconcile() call every id is emitted at most once: our storage
-        // holds globally-unique ids and the peer's id-list ranges are disjoint, so a plain
-        // list avoids the hashing/allocation cost of a set on the hot path. (Duplicates
-        // across successive reconcile() calls are the caller's responsibility, as before.)
+        // Collect have/need in plain lists (as the C++/JS reference does) rather than sets,
+        // avoiding the hashing/allocation cost of a set on the hot path. For a conformant
+        // peer every id is emitted at most once per call: our storage ids are globally unique
+        // and the peer's id-list ranges are disjoint. As already documented, the caller must
+        // tolerate duplicate have/need ids across calls (and, from a malformed peer, within a
+        // call), so this does not change the contract.
         val haveIds = ArrayList<Id>()
         val needIds = ArrayList<Id>()
 
