@@ -28,13 +28,20 @@ import com.vitorpamplona.negentropy.fingerprint.FingerprintCalculator
  * A [StorageVector] that answers [fingerprint] in O(1) instead of walking the
  * range on every call.
  *
- * At [seal] it builds an additive prefix-sum table over the sorted ids: entry
+ * At [seal] it builds an additive prefix-sum table over the sorted ids: slot
  * `i` holds the little-endian 256-bit sum (mod 2^256) of the first `i` ids.
  * The fingerprint of any half-open range [begin, end) is then
  * `sha256( (prefix[end] - prefix[begin]) mod 2^256 || varint(end - begin) )[0:16]`,
  * which is byte-identical to summing the ids in that range directly. This trades
  * an O(range) walk per fingerprint for a single 256-bit subtraction plus one
  * sha256, at the cost of an O(n) table rebuild on every [seal].
+ *
+ * The table is kept in a single flat [ByteArray] of `(size + 1) * Id.SIZE`
+ * bytes (slot `i` starts at `i * Id.SIZE`) rather than an array of arrays, so
+ * the rebuild — the operation that dominates this snapshot-per-generation model
+ * — is a sequential, cache-friendly pass with no per-slot allocation. This
+ * mirrors how the C++ reference packs subtree accumulators inline in its B-tree
+ * nodes.
  *
  * Behaves exactly like [StorageVector] for every other operation, so it is a
  * drop-in replacement wherever an [IStorage] is accepted (e.g. as the sealed
@@ -43,29 +50,30 @@ import com.vitorpamplona.negentropy.fingerprint.FingerprintCalculator
 class PrefixSumStorageVector(
     private val base: StorageVector = StorageVector(),
 ) : IStorage by base {
-    // prefix[i] = sum of the first i ids (mod 2^256), little-endian; prefix[0] is zero.
-    private var prefix: Array<ByteArray> = arrayOf(ByteArray(Id.SIZE))
+    // Flat prefix-sum table: slot i (bytes [i*Id.SIZE, (i+1)*Id.SIZE)) holds the
+    // little-endian 256-bit sum (mod 2^256) of the first i ids; slot 0 is zero.
+    private var prefix: ByteArray = ByteArray(Id.SIZE)
 
     override fun seal() {
         base.seal()
 
         val size = base.size()
-        val table = arrayOfNulls<ByteArray>(size + 1)
-        table[0] = ByteArray(Id.SIZE)
+        val table = ByteArray((size + 1) * Id.SIZE) // slot 0 stays zero-filled
 
         for (i in 0 until size) {
-            val next = table[i]!!.copyOf()
-            Accumulator256.add(next, base.getItem(i).id.bytes)
-            table[i + 1] = next
+            val prev = i * Id.SIZE
+            val curr = (i + 1) * Id.SIZE
+            // prefix[i+1] = prefix[i] + id[i]
+            table.copyInto(table, curr, prev, curr)
+            Accumulator256.add(table, base.getItem(i).id.bytes, baseOffset = curr)
         }
 
-        @Suppress("UNCHECKED_CAST")
-        prefix = table as Array<ByteArray>
+        prefix = table
     }
 
     override fun unseal() {
         base.unseal()
-        prefix = arrayOf(ByteArray(Id.SIZE))
+        prefix = ByteArray(Id.SIZE)
     }
 
     override fun fingerprint(
@@ -76,8 +84,9 @@ class PrefixSumStorageVector(
 
         if (begin == end) return FingerprintCalculator.ZERO_RANGE_FINGERPRINT
 
-        val diff = prefix[end].copyOf()
-        Accumulator256.subtract(diff, prefix[begin])
+        // diff = prefix[end] - prefix[begin]
+        val diff = prefix.copyOfRange(end * Id.SIZE, (end + 1) * Id.SIZE)
+        Accumulator256.subtract(diff, prefix, toSubtractOffset = begin * Id.SIZE)
 
         return FingerprintCalculator.fingerprintOf(diff, end - begin)
     }

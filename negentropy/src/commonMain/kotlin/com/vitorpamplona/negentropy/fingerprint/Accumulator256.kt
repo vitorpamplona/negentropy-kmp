@@ -51,52 +51,62 @@ internal object Accumulator256 {
     }
 
     /**
-     * Adds [toAdd] into [base] in place, treating both as little-endian
-     * 256-bit integers (mod 2^256).
+     * Adds the 32 bytes at [toAdd]/[toAddOffset] into the 32 bytes at
+     * [base]/[baseOffset] in place, treating both as little-endian 256-bit
+     * integers (mod 2^256). Offsets let callers pack many accumulators into a
+     * single flat buffer (e.g. a prefix-sum table) and add in place without
+     * slicing.
      */
     fun add(
         base: ByteArray,
         toAdd: ByteArray,
+        baseOffset: Int = 0,
+        toAddOffset: Int = 0,
     ) {
         var currCarry = 0L
 
         for (i in 0 until 8) {
-            val offset = i * 4
+            val bo = baseOffset + i * 4
+            val to = toAddOffset + i * 4
 
-            val p = get4BytesAsLongInLittleEndian(base, offset)
-            val po = get4BytesAsLongInLittleEndian(toAdd, offset)
+            val p = get4BytesAsLongInLittleEndian(base, bo)
+            val po = get4BytesAsLongInLittleEndian(toAdd, to)
 
             // must get 4 bytes from buffer, convert signed to unsigned int and
             // place it in a bigger variable to allow the if below
             val next = p + currCarry + po
 
-            putLongInLittleEndianAs4Bytes(base, offset, next)
+            putLongInLittleEndianAs4Bytes(base, bo, next)
             currCarry = if (next > 0xFFFFFFFF) 1 else 0
         }
     }
 
     /**
-     * Subtracts [toSubtract] from [base] in place, treating both as
-     * little-endian 256-bit integers (mod 2^256). This is the exact inverse
-     * of [add], so `subtract(add(x, y), y) == x`.
+     * Subtracts the 32 bytes at [toSubtract]/[toSubtractOffset] from the 32
+     * bytes at [base]/[baseOffset] in place, treating both as little-endian
+     * 256-bit integers (mod 2^256). This is the exact inverse of [add], so
+     * `subtract(add(x, y), y) == x`.
      */
     fun subtract(
         base: ByteArray,
         toSubtract: ByteArray,
+        baseOffset: Int = 0,
+        toSubtractOffset: Int = 0,
     ) {
         var currBorrow = 0L
 
         for (i in 0 until 8) {
-            val offset = i * 4
+            val bo = baseOffset + i * 4
+            val so = toSubtractOffset + i * 4
 
-            val p = get4BytesAsLongInLittleEndian(base, offset)
-            val po = get4BytesAsLongInLittleEndian(toSubtract, offset)
+            val p = get4BytesAsLongInLittleEndian(base, bo)
+            val po = get4BytesAsLongInLittleEndian(toSubtract, so)
 
             val next = p - po - currBorrow
 
             // putLong masks to the low 4 bytes, so a negative value wraps to
             // its two's-complement 32-bit representation (i.e. + 2^32).
-            putLongInLittleEndianAs4Bytes(base, offset, next)
+            putLongInLittleEndianAs4Bytes(base, bo, next)
             currBorrow = if (next < 0) 1 else 0
         }
     }
