@@ -64,8 +64,12 @@ class Negentropy(
     fun isInitiator() = isInitiator
 
     fun reconcile(query: ByteArray): ReconciliationResult {
-        val haveIds = mutableSetOf<Id>()
-        val needIds = mutableSetOf<Id>()
+        // Within a single reconcile() call every id is emitted at most once: our storage
+        // holds globally-unique ids and the peer's id-list ranges are disjoint, so a plain
+        // list avoids the hashing/allocation cost of a set on the hot path. (Duplicates
+        // across successive reconcile() calls are the caller's responsibility, as before.)
+        val haveIds = ArrayList<Id>()
+        val needIds = ArrayList<Id>()
 
         val consumer = MessageConsumer(query)
         val protocolVersion = consumer.decodeProtocolVersion()
@@ -144,8 +148,8 @@ class Negentropy(
 
         return ReconciliationResult(
             if (builder.length() == 1 && isInitiator) null else builder.toByteArray(),
-            haveIds.toList(),
-            needIds.toList(),
+            haveIds,
+            needIds,
         )
     }
 
@@ -175,8 +179,8 @@ class Negentropy(
         ids: List<Id>,
         lowerIndex: Int,
         upperIndex: Int,
-        haves: MutableSet<Id>,
-        needs: MutableSet<Id>,
+        haves: MutableList<Id>,
+        needs: MutableList<Id>,
     ) {
         if (lowerIndex == upperIndex) {
             // nothing to filter in the local db

@@ -29,17 +29,51 @@ package com.vitorpamplona.negentropy.storage
  */
 open class HashedByteArray : Comparable<HashedByteArray> {
     val bytes: ByteArray
-    private val hashCode: Int
+
+    // Lazily computed and cached on first hashCode()/equals() use. The vast majority of ids
+    // are only ever inserted, sorted and fingerprinted (all of which touch bytes directly,
+    // never the hash), so hashing every id at construction is wasted work on the hot load
+    // path. 0 doubles as the "not computed yet" sentinel; a genuine 0 hash just recomputes,
+    // which is cheap and rare. Safe because bytes never change (see class doc).
+    private var hashCode: Int = 0
 
     constructor(byte: ByteArray) {
         this.bytes = byte
-        this.hashCode = computeHashcode()
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     constructor(idHex: String) {
-        this.bytes = idHex.hexToByteArray()
-        this.hashCode = computeHashcode()
+        this.bytes = hexToByteArray(idHex)
+    }
+
+    companion object {
+        // Nibble lookup indexed directly by char code (0..255): value for '0'-'9', 'a'-'f'
+        // and 'A'-'F', -1 for everything else. Kotlin's stdlib hexToByteArray() runs through
+        // a configurable, separator-aware parser that dominates load time when constructing
+        // millions of ids. This flat 256-entry table (as in Amethyst/Quartz's Hex.decode)
+        // lets us index by char.code with no range branch; validity is folded into a single
+        // (hi or lo) < 0 test per byte so we still reject bad hex. Produces the exact same
+        // bytes as idHex.hexToByteArray() for valid input.
+        private val HEX_NIBBLE =
+            IntArray(256) { -1 }.apply {
+                for (c in '0'..'9') this[c.code] = c - '0'
+                for (c in 'a'..'f') this[c.code] = c - 'a' + 10
+                for (c in 'A'..'F') this[c.code] = c - 'A' + 10
+            }
+
+        internal fun hexToByteArray(hex: String): ByteArray {
+            val len = hex.length
+            require(len and 1 == 0) { "Not a valid hex: odd length $len" }
+
+            val table = HEX_NIBBLE
+            return ByteArray(len / 2) {
+                // char.code >= 256 (e.g. non-latin unicode) indexes out of the table and
+                // throws, so it is rejected just like an in-range non-hex char below.
+                val hi = table[hex[2 * it].code]
+                val lo = table[hex[2 * it + 1].code]
+                require((hi or lo) >= 0) { "Not a valid hex: $hex" }
+                ((hi shl 4) or lo).toByte()
+            }
+        }
     }
 
     /**
@@ -53,7 +87,14 @@ open class HashedByteArray : Comparable<HashedByteArray> {
         return hash
     }
 
-    override fun hashCode() = hashCode
+    override fun hashCode(): Int {
+        var h = hashCode
+        if (h == 0) {
+            h = computeHashcode()
+            hashCode = h
+        }
+        return h
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -64,7 +105,7 @@ open class HashedByteArray : Comparable<HashedByteArray> {
 
     fun equalsId(other: HashedByteArray): Boolean {
         // check hashcode first for speed
-        if (hashCode != other.hashCode) return false
+        if (hashCode() != other.hashCode()) return false
 
         // if hashcode matches, check content.
         if (!bytes.contentEquals(other.bytes)) return false
