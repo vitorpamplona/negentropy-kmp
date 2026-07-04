@@ -67,7 +67,7 @@ jobs:
 
       - name: Check iOS
         if: matrix.os == 'macOS-latest'
-        run: ./gradlew iosX64Test
+        run: ./gradlew iosSimulatorArm64Test
 
 #      - name: Check Android
 #        if: matrix.os == 'ubuntu-latest'
