@@ -12,7 +12,7 @@ echo "$JAVA_HOME"
 echo "$(java -version)"
 echo "Running test... "
 
-./gradlew test
+./gradlew spotlessCheck jvmTest testAndroidHostTest
 
 status=$?
 
@@ -22,7 +22,7 @@ if [ "$status" = 0 ] ; then
 else
     echo "*********************************************************"
     echo 1>&2 "Failing test"
-    printf "Run ${GREEN}./gradlew test${NO_COLOR} to make sure you have all tests green before pushing...\n"
+    printf "Run ${GREEN}./gradlew spotlessApply jvmTest testAndroidHostTest${NO_COLOR} to make sure you have all tests green before pushing...\n"
     echo "*********************************************************"
     exit 1
 fi
