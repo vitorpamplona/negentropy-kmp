@@ -37,7 +37,9 @@ actual fun readTestResource(resourceName: String): ByteArray {
 
 private fun isNodeJs(): Boolean = js("typeof window === 'undefined'")
 
-private fun nodeReadFileSync(path: String): JsAny = js("require('fs').readFileSync(path)")
+// Kotlin/Wasm runs as an ES module, where `require` does not exist (Kotlin replaces it with a stub
+// that throws), so take `fs` from process.getBuiltinModule (Node.js 20.16+ and 22.3+).
+private fun nodeReadFileSync(path: String): JsAny = js("globalThis.process.getBuiltinModule('fs').readFileSync(path)")
 
 private fun browserFetchSync(url: String): JsAny = js("new TextEncoder().encode((function(u){var x=new XMLHttpRequest();x.open('GET',u,false);x.send(null);return x.responseText;})(url))")
 

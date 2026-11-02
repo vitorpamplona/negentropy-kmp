@@ -65,6 +65,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: ./gradlew linuxX64Test
 
+      - name: Check JS and Wasm (Node.js)
+        if: matrix.os == 'ubuntu-latest'
+        run: ./gradlew jsNodeTest wasmJsNodeTest
+
       - name: Check iOS
         if: matrix.os == 'macOS-latest'
         run: ./gradlew iosSimulatorArm64Test
