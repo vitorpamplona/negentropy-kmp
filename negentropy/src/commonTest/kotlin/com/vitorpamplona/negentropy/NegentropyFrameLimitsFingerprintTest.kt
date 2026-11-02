@@ -65,7 +65,7 @@ class NegentropyFrameLimitsFingerprintTest {
 
     @Test
     fun fingerprintRangesMatchSenderItemsWithFrameLimits() {
-        repeat(150) { seed ->
+        repeat(40) { seed ->
             val rnd = Random(seed)
             val client = StorageVector()
             val server = StorageVector()

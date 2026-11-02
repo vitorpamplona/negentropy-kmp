@@ -113,13 +113,7 @@ class Negentropy(
                             builder.merge(lineBuilder)
                             emittedIndex = upperIndex
                         } else {
-                            // if exceeds, attaches the fingerprint and exits.
-                            builder.addFingerprint(
-                                Mode.Fingerprint(
-                                    Bound(Long.MAX_VALUE),
-                                    storage.fingerprint(emittedIndex, storage.size()),
-                                ),
-                            )
+                            addRemainingFingerprint(builder, emittedIndex)
                             break
                         }
                     }
@@ -140,13 +134,7 @@ class Negentropy(
                         emittedIndex = upperIndex
 
                         if (exceededFrameSizeLimit(builder.length())) {
-                            // if exceeds, attaches the fingerprint and exits.
-                            builder.addFingerprint(
-                                Mode.Fingerprint(
-                                    Bound(Long.MAX_VALUE),
-                                    storage.fingerprint(emittedIndex, storage.size()),
-                                ),
-                            )
+                            addRemainingFingerprint(builder, emittedIndex)
                             break
                         }
                     }
@@ -160,6 +148,23 @@ class Negentropy(
             if (builder.length() == 1 && isInitiator) null else builder.toByteArray(),
             haveIds,
             needIds,
+        )
+    }
+
+    /**
+     * Closes a message that hit the frame size limit: one fingerprint up to infinity for the rest
+     * of the set. The receiver reads it as starting at the last bound written to [builder], so it
+     * must cover our items from [emittedIndex], where the items below that bound end.
+     */
+    private fun addRemainingFingerprint(
+        builder: MessageBuilder,
+        emittedIndex: Int,
+    ) {
+        builder.addFingerprint(
+            Mode.Fingerprint(
+                Bound(Long.MAX_VALUE),
+                storage.fingerprint(emittedIndex, storage.size()),
+            ),
         )
     }
 
