@@ -41,7 +41,7 @@ git remote add nostr nostr://npub1gcxzte5zlkncx26j68ez60fzkvtkm9e0vrwdcvsjakxf9m
 ## The build gate (both paths, every create, revise and merge)
 
 ```bash
-bash git-hooks/pre-push   # spotlessCheck, jvmTest, testAndroidHostTest
+bash git-hooks/pre-push   # spotlessCheck, the JVM, Android host, Linux, JS and Wasm tests, the Apple metadata compile
 ```
 
 `git push` runs that script from `.git/hooks/pre-push` once `./gradlew installGitHook` has copied it there; a fresh clone or web container has none, so run that once per checkout. `ngit send` publishes without a `git push`, so run the script by hand before it.

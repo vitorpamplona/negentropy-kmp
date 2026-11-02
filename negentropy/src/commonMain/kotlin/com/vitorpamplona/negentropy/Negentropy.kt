@@ -86,6 +86,12 @@ class Negentropy(
 
         var lowerIndex = 0
 
+        // Index where the items below the last bound written to builder end. When the frame size
+        // limit stops processing, the receiver reads the closing fingerprint as starting at that
+        // bound, so it must cover our items from here on. The dropped range's output, and any skip
+        // it had flushed, are never written, so this can be below the current range's upperIndex.
+        var emittedIndex = 0
+
         while (consumer.hasItemsToConsume()) {
             val mode = consumer.nextMode()
             var upperIndex = storage.indexAtOrBeforeBound(mode.nextBound, lowerIndex, storage.size())
@@ -105,14 +111,9 @@ class Negentropy(
 
                         if (!exceededFrameSizeLimit(builder.length() + lineBuilder.length())) {
                             builder.merge(lineBuilder)
+                            emittedIndex = upperIndex
                         } else {
-                            // if exceeds, attaches the fingerprint and exits.
-                            builder.addFingerprint(
-                                Mode.Fingerprint(
-                                    Bound(Long.MAX_VALUE),
-                                    storage.fingerprint(upperIndex, storage.size()),
-                                ),
-                            )
+                            addRemainingFingerprint(builder, emittedIndex)
                             break
                         }
                     }
@@ -130,15 +131,10 @@ class Negentropy(
                         upperIndex = lowerIndex + ids.ids.size
 
                         builder.addIdList(ids)
+                        emittedIndex = upperIndex
 
                         if (exceededFrameSizeLimit(builder.length())) {
-                            // if exceeds, attaches the fingerprint and exits.
-                            builder.addFingerprint(
-                                Mode.Fingerprint(
-                                    Bound(Long.MAX_VALUE),
-                                    storage.fingerprint(upperIndex, storage.size()),
-                                ),
-                            )
+                            addRemainingFingerprint(builder, emittedIndex)
                             break
                         }
                     }
@@ -152,6 +148,23 @@ class Negentropy(
             if (builder.length() == 1 && isInitiator) null else builder.toByteArray(),
             haveIds,
             needIds,
+        )
+    }
+
+    /**
+     * Closes a message that hit the frame size limit: one fingerprint up to infinity for the rest
+     * of the set. The receiver reads it as starting at the last bound written to [builder], so it
+     * must cover our items from [emittedIndex], where the items below that bound end.
+     */
+    private fun addRemainingFingerprint(
+        builder: MessageBuilder,
+        emittedIndex: Int,
+    ) {
+        builder.addFingerprint(
+            Mode.Fingerprint(
+                Bound(Long.MAX_VALUE),
+                storage.fingerprint(emittedIndex, storage.size()),
+            ),
         )
     }
 

@@ -129,17 +129,22 @@ install_sdk_package() {
   echo "Installed to $dest_dir"
 }
 
-# Install Android platform 36
-install_sdk_package \
-  "$SDK_REPO_BASE/platform-36_r02.zip" \
-  "$ANDROID_SDK_DIR/platforms/android-36" \
-  "android-36"
+# The Android platform and Kotlin version the packages below are pinned to. Keep them in step with
+# android-compileSdk and kotlin in gradle/libs.versions.toml; the end of this script warns if not.
+PINNED_ANDROID_PLATFORM="37"
+PINNED_KOTLIN="2.4.21"
 
-# Install build-tools 36.0.0 (zip uses "android-16" as inner dir name)
+# Install Android platform 37
 install_sdk_package \
-  "$SDK_REPO_BASE/build-tools_r36_linux.zip" \
-  "$ANDROID_SDK_DIR/build-tools/36.0.0" \
-  "android-16"
+  "$SDK_REPO_BASE/platform-37.0_r01.zip" \
+  "$ANDROID_SDK_DIR/platforms/android-37" \
+  "android-37.0"
+
+# Install build-tools 37.0.0 (zip uses "android-37.0" as inner dir name)
+install_sdk_package \
+  "$SDK_REPO_BASE/build-tools_r37_linux.zip" \
+  "$ANDROID_SDK_DIR/build-tools/37.0.0" \
+  "android-37.0"
 
 # Install platform-tools
 install_sdk_package \
@@ -160,7 +165,7 @@ echo -e "\n504667f4c0de7af1a06de9f4b1727b84351f2910" >> "$ANDROID_SDK_DIR/licens
 echo -e "\nd975f751698a77b662f1254ddbeed3901e976f5a" > "$ANDROID_SDK_DIR/licenses/intel-android-extra-license"
 
 # Create local.properties if missing
-REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/home/user/Amber}")"
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$PWD}")"
 LOCAL_PROPS="$REPO_ROOT/local.properties"
 if [ ! -f "$LOCAL_PROPS" ]; then
   echo "sdk.dir=$ANDROID_SDK_DIR" > "$LOCAL_PROPS"
@@ -174,7 +179,125 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export PATH=\$PATH:$ANDROID_SDK_DIR/platform-tools" >> "$CLAUDE_ENV_FILE"
 fi
 
+# --- Kotlin/Native: pre-install native dependencies (GCC sysroot, LLDB) ---
+# The K/N compiler downloads these on first use, but that fails through the proxy.
+# Pre-download them so K/N benchmarks and linuxX64 compilation work out of the box.
+KONAN_DIR="/root/.konan"
+KONAN_DEPS_URL="https://download.jetbrains.com/kotlin/native"
+KONAN_DEPS_DIR="$KONAN_DIR/dependencies"
+
+# K/N decides what is installed from the names listed in dependencies/.extracted, not from the
+# directories: a dependency extracted without its entry there is downloaded again on first use.
+mark_konan_dep_extracted() {
+  local dep_name="$1"
+  touch "$KONAN_DEPS_DIR/.extracted"
+  grep -qxF "$dep_name" "$KONAN_DEPS_DIR/.extracted" || echo "$dep_name" >> "$KONAN_DEPS_DIR/.extracted"
+}
+
+install_konan_dep() {
+  local dep_name="$1"
+  local url="$2"  # full download URL
+  # Already extracted?
+  if [ -d "$KONAN_DEPS_DIR/$dep_name" ]; then
+    mark_konan_dep_extracted "$dep_name"
+    return 0
+  fi
+  local archive="$dep_name.tar.gz"
+  local cache_dir="$KONAN_DEPS_DIR/cache"
+  mkdir -p "$cache_dir"
+  if [ ! -f "$cache_dir/$archive" ]; then
+    echo "Downloading K/N dependency $dep_name..."
+    curl -fsSL "$url" -o "$cache_dir/$archive" || {
+      echo "Failed to download $dep_name" >&2; rm -f "$cache_dir/$archive"; return 1
+    }
+  fi
+  echo "Extracting $dep_name..."
+  tar -xzf "$cache_dir/$archive" -C "$KONAN_DEPS_DIR" || {
+    echo "Failed to extract $dep_name" >&2; rm -rf "${KONAN_DEPS_DIR:?}/$dep_name"; return 1
+  }
+  mark_konan_dep_extracted "$dep_name"
+}
+
+# Dependencies for the linuxX64 target (from konan.properties for Kotlin $PINNED_KOTLIN).
+# Best effort: if one fails, K/N tries again itself on first use, and the steps below still run.
+mkdir -p "$KONAN_DEPS_DIR"
+install_konan_dep "x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2" \
+  "$KONAN_DEPS_URL/x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2.tar.gz" || true
+install_konan_dep "lldb-4-linux" \
+  "$KONAN_DEPS_URL/lldb-4-linux.tar.gz" || true
+install_konan_dep "llvm-21-x86_64-linux-essentials-116" \
+  "$KONAN_DEPS_URL/resources/llvm/21-x86_64-linux/llvm-21-x86_64-linux-essentials-116.tar.gz" || true
+install_konan_dep "libffi-3.2.1-2-linux-x86-64" \
+  "$KONAN_DEPS_URL/libffi-3.2.1-2-linux-x86-64.tar.gz" || true
+
+# --- Gradle distribution: pre-seed the wrapper distribution ---
+# The wrapper's distributionUrl (services.gradle.org) 307-redirects to
+# github.com release assets, which the web sandbox's git-only GitHub proxy
+# blocks (403) even at Full network access — so `./gradlew` can't bootstrap.
+# Download the pinned distribution from a mirror instead, but verify it against
+# Gradle's OFFICIAL sha256 (served from services.gradle.org, reachable here)
+# so a tampered/wrong mirror file is rejected and never executed. Idempotent:
+# skips entirely if the distribution is already installed.
+seed_gradle_distribution() {
+  local props="$CLAUDE_PROJECT_DIR/gradle/wrapper/gradle-wrapper.properties"
+  [ -f "$props" ] || return 0
+  local url zip name hash dir ver official mirror ok=""
+  url=$(sed -n 's/^distributionUrl=//p' "$props" | sed 's/\\//g')
+  [ -n "$url" ] || return 0
+  zip=${url##*/}; name=${zip%.zip}
+  # Gradle stores the dist under base36(md5(distributionUrl)) — derive it so this
+  # keeps working across version bumps instead of hardcoding the hash dir.
+  hash=$(python3 - "$url" <<'PY'
+import hashlib, sys
+n = int.from_bytes(hashlib.md5(sys.argv[1].encode()).digest(), 'big')
+d = "0123456789abcdefghijklmnopqrstuvwxyz"; s = ""
+while n:
+    s = d[n % 36] + s; n //= 36
+print(s or "0")
+PY
+)
+  dir="${GRADLE_USER_HOME:-$HOME/.gradle}/wrapper/dists/$name/$hash"
+  ver=${name%-bin}; ver=${ver%-all}
+  if [ -x "$dir/$ver/bin/gradle" ]; then return 0; fi   # already installed
+  echo "Seeding Gradle distribution $ver (github release blocked; using verified mirror)..." >&2
+  mkdir -p "$dir"
+  official=$(curl -fsSL "https://services.gradle.org/distributions/${zip}.sha256") || {
+    echo "Could not fetch official Gradle checksum; leaving gradlew to fail as before." >&2
+    return 0
+  }
+  for mirror in \
+      "https://mirrors.cloud.tencent.com/gradle" \
+      "https://mirrors.huaweicloud.com/gradle"; do
+    if curl -fsSL -o "$dir/$zip" "$mirror/$zip" \
+       && echo "${official}  $dir/$zip" | sha256sum -c - >/dev/null 2>&1; then
+      ok=1; break
+    fi
+    echo "Mirror $mirror failed download/verify; trying next." >&2
+    rm -f "$dir/$zip"
+  done
+  if [ -z "$ok" ]; then
+    echo "Gradle seed failed against all mirrors; leaving gradlew to fail as before." >&2
+    return 0
+  fi
+  unzip -q "$dir/$zip" -d "$dir" && touch "$dir/$zip.ok"
+  echo "Gradle $ver seeded and verified against official sha256." >&2
+}
+seed_gradle_distribution
+
 cd "$CLAUDE_PROJECT_DIR"
 ./gradlew --version > /dev/null 2>&1
+
+# --- Warn when the pinned versions above have fallen behind the build ---
+toml_version() {
+  sed -n "s/^$1 *= *\"\(.*\)\"/\1/p" gradle/libs.versions.toml 2>/dev/null | head -1
+}
+compile_sdk="$(toml_version android-compileSdk)"
+kotlin_version="$(toml_version kotlin)"
+if [ -n "$compile_sdk" ] && [ "$compile_sdk" != "$PINNED_ANDROID_PLATFORM" ]; then
+  echo "WARNING: .claude/hooks/session-start.sh installs Android platform $PINNED_ANDROID_PLATFORM but android-compileSdk is $compile_sdk; update the hook."
+fi
+if [ -n "$kotlin_version" ] && [ "$kotlin_version" != "$PINNED_KOTLIN" ]; then
+  echo "WARNING: .claude/hooks/session-start.sh pre-installs Kotlin/Native dependencies for Kotlin $PINNED_KOTLIN but the build uses $kotlin_version; update the list from that version's konan.properties."
+fi
 
 echo "Android SDK setup complete."

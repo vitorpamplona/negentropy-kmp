@@ -9,7 +9,7 @@ echo "*********************************************************"
 echo ""
 echo "Java Version: "
 echo "$JAVA_HOME"
-echo "$(java -version)"
+java -version
 echo "Running test... "
 
 ./gradlew spotlessCheck
