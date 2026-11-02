@@ -9,10 +9,13 @@ echo "*********************************************************"
 echo ""
 echo "Java Version: "
 echo "$JAVA_HOME"
-echo "$(java -version)"
+java -version
 echo "Running test... "
 
-./gradlew spotlessCheck jvmTest testAndroidHostTest
+# CI's checks that run on Linux, plus the JS and Wasm tests in Node.js and the Apple metadata
+# compile. The Apple tests need a Mac (CI's macOS job runs iosSimulatorArm64Test); the Windows
+# tests need Windows (CI's windows job runs jvmTest there, mingwX64 only compiles here).
+./gradlew spotlessCheck :negentropy:jvmTest :negentropy:testAndroidHostTest :negentropy:linuxX64Test :negentropy:jsNodeTest :negentropy:wasmJsNodeTest :negentropy:compileAppleMainKotlinMetadata
 
 status=$?
 
@@ -21,8 +24,10 @@ if [ "$status" = 0 ] ; then
     exit 0
 else
     echo "*********************************************************"
-    echo 1>&2 "Failing test"
-    printf "Run ${GREEN}./gradlew spotlessApply jvmTest testAndroidHostTest${NO_COLOR} to make sure you have all tests green before pushing...\n"
+    echo 1>&2 "Formatting or tests failed"
+    printf "Run ${GREEN}./gradlew spotlessApply :negentropy:jvmTest :negentropy:testAndroidHostTest :negentropy:linuxX64Test${NO_COLOR}\n"
+    printf "and ${GREEN}./gradlew :negentropy:jsNodeTest :negentropy:wasmJsNodeTest${NO_COLOR},\n"
+    printf "and ${GREEN}./gradlew :negentropy:compileAppleMainKotlinMetadata${NO_COLOR}, and fix what fails before pushing...\n"
     echo "*********************************************************"
     exit 1
 fi
