@@ -1,8 +1,9 @@
 # negentropy-kmp
 
 A Kotlin Multiplatform port of [Negentropy](https://github.com/hoytech/negentropy), Doug Hoyte's
-range-based set reconciliation protocol (version 1, `0x61`): two peers find which items each holds
-that the other lacks by exchanging fingerprints of ranges and splitting the ranges that differ.
+range-based set reconciliation protocol (version 1, `0x61`; Nostr's NIP-77 runs on it): two peers
+find which items each holds that the other lacks by exchanging fingerprints of ranges and
+splitting the ranges that differ.
 Published to Maven Central as `com.vitorpamplona.negentropy:kmp-negentropy`, for JVM, Android,
 JS, Wasm, iOS, macOS, Linux and Windows. It speaks the same bytes as the reference's C++, JS, Go
 and Rust implementations, and the reference repository's cross-language test suite runs this
