@@ -113,4 +113,69 @@ class NegentropyFrameLimitsFingerprintTest {
             assertEquals(onlyOnServer, needs, "seed $seed: needs")
         }
     }
+
+    /**
+     * The deterministic case from hoytech/negentropy#20, as the reference's test/gen-mirror-case.pl
+     * builds it: the initiator holds the newest items, and its frame size cut used to leave them
+     * out of the closing fingerprint, so the sync ended without reporting them.
+     */
+    @Test
+    fun mirrorCaseFromReferenceIssue20() {
+        var seq = 1L
+
+        // 8-byte little-endian sequence number followed by 24 zero bytes
+        fun nextId() = Id(ByteArray(Id.SIZE) { i -> if (i < 8) (seq shr (8 * i)).toByte() else 0 }).also { seq++ }
+
+        val client = StorageVector()
+        val server = StorageVector()
+        val onlyOnClient = HashSet<Id>()
+        val onlyOnServer = HashSet<Id>()
+
+        fun both(timestamp: Long) =
+            nextId().let {
+                client.insert(timestamp, it)
+                server.insert(timestamp, it)
+            }
+
+        fun clientOnly(timestamp: Long) =
+            nextId().let {
+                client.insert(timestamp, it)
+                onlyOnClient.add(it)
+            }
+
+        fun serverOnly(timestamp: Long) =
+            nextId().let {
+                server.insert(timestamp, it)
+                onlyOnServer.add(it)
+            }
+
+        for (i in 0 until 1500) both(1000L + i * 10)
+        for (k in 0 until 15) serverOnly(1000L + k * 1000 + 5)
+        for (b in 0 until 2) for (k in 0 until 35) clientOnly(1000L + b * 1000 + 201 + k % 8)
+        for (j in 0 until 40) both(15900L + j * 2)
+        serverOnly(15999L)
+        for (k in 0 until 110) clientOnly(50000L + k * 10) // above everything the server holds
+
+        client.seal()
+        server.seal()
+
+        val neClient = Negentropy(client, 4096)
+        val neServer = Negentropy(server, 4767)
+
+        val haves = HashSet<Id>()
+        val needs = HashSet<Id>()
+
+        var msg: ByteArray? = neClient.initiate()
+        var rounds = 0
+        while (msg != null) {
+            check(rounds++ < 100) { "sync did not finish" }
+            val result = neClient.reconcile(neServer.reconcile(msg).msg!!)
+            haves.addAll(result.sendIds)
+            needs.addAll(result.needIds)
+            msg = result.msg
+        }
+
+        assertEquals(onlyOnClient, haves, "haves")
+        assertEquals(onlyOnServer, needs, "needs")
+    }
 }
