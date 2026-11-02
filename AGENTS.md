@@ -61,7 +61,10 @@ library.
   commit `kotlin-js-store/`, or the JS and Wasm tests fail at `kotlinStoreYarnLock`.
 - Before pushing: `./gradlew spotlessApply`, then
   `./gradlew spotlessCheck :negentropy:jvmTest :negentropy:testAndroidHostTest :negentropy:linuxX64Test :negentropy:jsNodeTest :negentropy:wasmJsNodeTest :negentropy:compileAppleMainKotlinMetadata`
-  (the pre-push hook runs these; `./gradlew installGitHook` installs it).
+  (the pre-push hook runs these; `./gradlew installGitHook` installs it). The Wasm tests need
+  tooling Gradle fetches from codeload.github.com, which some sandboxes block (Claude Code on the
+  web among them, unless the environment allows that host): the hook then skips them with a
+  warning, and the PR should say they did not run.
 - Releases follow semantic versioning: a breaking change to the public API bumps the major
   version.
 - Commits: conventional commits (`feat:`, `fix:`, `test:`, `build:`, …). Never `--no-verify`.

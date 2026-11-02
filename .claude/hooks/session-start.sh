@@ -129,6 +129,11 @@ install_sdk_package() {
   echo "Installed to $dest_dir"
 }
 
+# The Android platform and Kotlin version the packages below are pinned to. Keep them in step with
+# android-compileSdk and kotlin in gradle/libs.versions.toml; the end of this script warns if not.
+PINNED_ANDROID_PLATFORM="37"
+PINNED_KOTLIN="2.4.21"
+
 # Install Android platform 37
 install_sdk_package \
   "$SDK_REPO_BASE/platform-37.0_r01.zip" \
@@ -181,11 +186,20 @@ KONAN_DIR="/root/.konan"
 KONAN_DEPS_URL="https://download.jetbrains.com/kotlin/native"
 KONAN_DEPS_DIR="$KONAN_DIR/dependencies"
 
+# K/N decides what is installed from the names listed in dependencies/.extracted, not from the
+# directories: a dependency extracted without its entry there is downloaded again on first use.
+mark_konan_dep_extracted() {
+  local dep_name="$1"
+  touch "$KONAN_DEPS_DIR/.extracted"
+  grep -qxF "$dep_name" "$KONAN_DEPS_DIR/.extracted" || echo "$dep_name" >> "$KONAN_DEPS_DIR/.extracted"
+}
+
 install_konan_dep() {
   local dep_name="$1"
   local url="$2"  # full download URL
   # Already extracted?
   if [ -d "$KONAN_DEPS_DIR/$dep_name" ]; then
+    mark_konan_dep_extracted "$dep_name"
     return 0
   fi
   local archive="$dep_name.tar.gz"
@@ -194,22 +208,27 @@ install_konan_dep() {
   if [ ! -f "$cache_dir/$archive" ]; then
     echo "Downloading K/N dependency $dep_name..."
     curl -fsSL "$url" -o "$cache_dir/$archive" || {
-      echo "Failed to download $dep_name" >&2; return 1
+      echo "Failed to download $dep_name" >&2; rm -f "$cache_dir/$archive"; return 1
     }
   fi
   echo "Extracting $dep_name..."
-  tar -xzf "$cache_dir/$archive" -C "$KONAN_DEPS_DIR"
+  tar -xzf "$cache_dir/$archive" -C "$KONAN_DEPS_DIR" || {
+    echo "Failed to extract $dep_name" >&2; rm -rf "${KONAN_DEPS_DIR:?}/$dep_name"; return 1
+  }
+  mark_konan_dep_extracted "$dep_name"
 }
 
-# Dependencies for the linuxX64 target (from konan.properties for Kotlin 2.4.21)
+# Dependencies for the linuxX64 target (from konan.properties for Kotlin $PINNED_KOTLIN).
+# Best effort: if one fails, K/N tries again itself on first use, and the steps below still run.
+mkdir -p "$KONAN_DEPS_DIR"
 install_konan_dep "x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2" \
-  "$KONAN_DEPS_URL/x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2.tar.gz"
+  "$KONAN_DEPS_URL/x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2.tar.gz" || true
 install_konan_dep "lldb-4-linux" \
-  "$KONAN_DEPS_URL/lldb-4-linux.tar.gz"
+  "$KONAN_DEPS_URL/lldb-4-linux.tar.gz" || true
 install_konan_dep "llvm-21-x86_64-linux-essentials-116" \
-  "$KONAN_DEPS_URL/resources/llvm/21-x86_64-linux/llvm-21-x86_64-linux-essentials-116.tar.gz"
+  "$KONAN_DEPS_URL/resources/llvm/21-x86_64-linux/llvm-21-x86_64-linux-essentials-116.tar.gz" || true
 install_konan_dep "libffi-3.2.1-2-linux-x86-64" \
-  "$KONAN_DEPS_URL/libffi-3.2.1-2-linux-x86-64.tar.gz"
+  "$KONAN_DEPS_URL/libffi-3.2.1-2-linux-x86-64.tar.gz" || true
 
 # --- Gradle distribution: pre-seed the wrapper distribution ---
 # The wrapper's distributionUrl (services.gradle.org) 307-redirects to
@@ -267,5 +286,18 @@ seed_gradle_distribution
 
 cd "$CLAUDE_PROJECT_DIR"
 ./gradlew --version > /dev/null 2>&1
+
+# --- Warn when the pinned versions above have fallen behind the build ---
+toml_version() {
+  sed -n "s/^$1 *= *\"\(.*\)\"/\1/p" gradle/libs.versions.toml 2>/dev/null | head -1
+}
+compile_sdk="$(toml_version android-compileSdk)"
+kotlin_version="$(toml_version kotlin)"
+if [ -n "$compile_sdk" ] && [ "$compile_sdk" != "$PINNED_ANDROID_PLATFORM" ]; then
+  echo "WARNING: .claude/hooks/session-start.sh installs Android platform $PINNED_ANDROID_PLATFORM but android-compileSdk is $compile_sdk; update the hook."
+fi
+if [ -n "$kotlin_version" ] && [ "$kotlin_version" != "$PINNED_KOTLIN" ]; then
+  echo "WARNING: .claude/hooks/session-start.sh pre-installs Kotlin/Native dependencies for Kotlin $PINNED_KOTLIN but the build uses $kotlin_version; update the list from that version's konan.properties."
+fi
 
 echo "Android SDK setup complete."
