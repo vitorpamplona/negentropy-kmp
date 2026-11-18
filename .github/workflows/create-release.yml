@@ -62,4 +62,45 @@ jobs:
           body: ${{ env.RELEASE_NOTES }}
         if: ${{ env.RELEASE_NOTES != '' }}
 
+  # The same publications on Nostr + Blossom, through Magpie's publishToNostr (the plugin version
+  # is in libs.versions.toml, the relays in gradle.properties), beside the Maven Central job and
+  # independent of it: Central's upload limit can fail one without holding back the other. It runs
+  # the same checks first, uploads every file to the release key's Blossom servers (kind 10063)
+  # and signs one release event (kind 3071) per published module, sent to the key's own relays
+  # (its kind 10002 and nostr.json). The key never reaches CI: MAGPIE_BUNKER is a NIP-46 bunker
+  # URI, so the signer approves each release (the job waits for it), and
+  # vitorpamplona.com/.well-known/nostr.json must name the key as "releases" or Magpie refuses to
+  # sign. A version already on Nostr fails the job: releases are immutable.
+  nostr:
+    runs-on: macOS-latest
 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'zulu'
+          java-version: 21
+
+      - name: Cached Konan
+        uses: actions/cache@v6
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-konan-
+
+      - name: Check
+        run: ./gradlew allTests
+
+      - name: Set version for tag
+        run: |
+          echo "ORG_GRADLE_PROJECT_VERSION_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+
+      - name: Publish to Nostr
+        run: ./gradlew :negentropy:publishToNostr --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+          MAGPIE_BUNKER: ${{ secrets.MAGPIE_BUNKER }}

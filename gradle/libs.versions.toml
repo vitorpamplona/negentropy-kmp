@@ -4,6 +4,7 @@ kotlin = "2.4.21"
 android-minSdk = "24"
 android-compileSdk = "37"
 mavenPublish = "0.37.0"
+magpie = "0.2.0"
 spotless = "8.10.4"
 
 [libraries]
@@ -13,4 +14,5 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 androidKotlinMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
+magpiePublish = { id = "com.vitorpamplona.magpie.publish", version.ref = "magpie" }
 diffplugSpotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

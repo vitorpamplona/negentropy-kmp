@@ -6,6 +6,30 @@ It's basically a binary search set-reconciliation algorithm.
 You can read about the details [here](https://logperiodic.com/rbsr.html).
 This code is basically a re-implementation of [Doug Hoyte's repository here](https://github.com/hoytech/negentropy)
 
+## Install
+
+```kotlin
+dependencies {
+    implementation("com.vitorpamplona.negentropy:kmp-negentropy:<version>")
+}
+```
+
+The library is on Maven Central.
+Releases also go to Nostr + Blossom through [Magpie](https://github.com/vitorpamplona/magpie). To
+take them from there (signed by the key `vitorpamplona.com/.well-known/nostr.json` names as
+`releases`), add Magpie's settings plugin in `settings.gradle.kts` and commit the
+`gradle/magpie.lock` it writes; Gradle has to run on Java 21 or newer:
+
+```kotlin
+plugins {
+    id("com.vitorpamplona.magpie") version "0.2.0"
+}
+
+magpie {
+    group("com.vitorpamplona.negentropy")
+}
+```
+
 ## Storage
 
 First, you need to create a storage instance. Currently only `Vector` is implemented.
