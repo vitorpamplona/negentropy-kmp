@@ -87,4 +87,8 @@ Bump `VERSION_NAME` in `gradle.properties`, then push a `v<version>` tag. The
 `create-release.yml` workflow runs every test on macOS, publishes to Maven Central and opens the
 GitHub release. It needs the signing secrets `SONATYPE_USERNAME`, `SONATYPE_PASSWORD`,
 `SIGNING_PRIVATE_KEY` and `SIGNING_PASSWORD`. After a release, the reference repository's
-`test/kotlin/Makefile` pins the version its cross-language tests download.
+`test/kotlin/Makefile` pins the version its cross-language tests download. The workflow's `nostr` job publishes the same files to Nostr + Blossom with Magpie's
+`publishToNostr`, independently of Maven Central, so either can be re-run alone. It needs the
+signing secrets and `MAGPIE_BUNKER`, a NIP-46 `bunker://` URI for the release key that
+`vitorpamplona.com/.well-known/nostr.json` names as `releases`; the signer approves each release,
+and a version already on Nostr fails the job.
