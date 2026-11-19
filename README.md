@@ -22,7 +22,7 @@ take them from there (signed by the key `vitorpamplona.com/.well-known/nostr.jso
 
 ```kotlin
 plugins {
-    id("com.vitorpamplona.magpie") version "0.2.0"
+    id("com.vitorpamplona.magpie") version "0.2.1"
 }
 
 magpie {

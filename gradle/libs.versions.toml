@@ -4,7 +4,7 @@ kotlin = "2.4.21"
 android-minSdk = "24"
 android-compileSdk = "37"
 mavenPublish = "0.37.0"
-magpie = "0.2.0"
+magpie = "0.2.1"
 spotless = "8.10.4"
 
 [libraries]
